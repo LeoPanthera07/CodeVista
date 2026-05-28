@@ -72,50 +72,46 @@ async function chatCompletion(messages, opts = {}) {
     client = getClient();
   }
 
-  const modelToUse = opts.model || MODEL;
+  const primaryModel = opts.model || MODEL;
+  const modelChain = [primaryModel];
 
-  try {
-    const response = await client.chat.completions.create({
-      model: modelToUse,
-      messages,
-      max_tokens: opts.maxTokens || MAX_TOKENS,
-      temperature: opts.temperature ?? TEMPERATURE,
-    });
-
-    const choice = response.choices?.[0];
-    if (!choice || !choice.message) {
-      throw new Error('Empty response from Groq API');
-    }
-    return choice.message.content;
-  } catch (err) {
-    // If the primary model hits a TPD/TPM rate limit (429), auto-fallback to high-availability 8B model
-    const isRateLimit = err.status === 429 || 
-                        err.message?.includes('429') || 
-                        err.message?.includes('rate_limit') || 
-                        err.message?.includes('Limit') || 
-                        err.message?.includes('exceeded');
-                        
-    if (isRateLimit && modelToUse === 'llama-3.3-70b-versatile') {
-      console.warn(`[LLM] 429 Rate Limit on ${modelToUse} — automatically hot-swapping request to high-capacity llama-3.1-8b-instant`);
-      try {
-        const fallbackResponse = await client.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
-          messages,
-          max_tokens: opts.maxTokens || MAX_TOKENS,
-          temperature: opts.temperature ?? TEMPERATURE,
-        });
-
-        const choice = fallbackResponse.choices?.[0];
-        if (choice && choice.message) {
-          return choice.message.content;
-        }
-      } catch (fallbackErr) {
-        console.error(`[LLM] Fallback model also failed:`, fallbackErr);
-        throw fallbackErr;
-      }
-    }
-    throw err;
+  // If using the standard heavy reasoning model, set up the fallback list
+  if (primaryModel === 'llama-3.3-70b-versatile') {
+    modelChain.push('mixtral-8x7b-32768'); // Immediate second best model
+    modelChain.push('llama-3.1-8b-instant'); // Ultra-high throughput lightweight fallback
   }
+
+  let lastError;
+  for (const model of modelChain) {
+    try {
+      const response = await client.chat.completions.create({
+        model: model,
+        messages,
+        max_tokens: opts.maxTokens || MAX_TOKENS,
+        temperature: opts.temperature ?? TEMPERATURE,
+      });
+
+      const choice = response.choices?.[0];
+      if (!choice || !choice.message) {
+        throw new Error('Empty response from Groq API');
+      }
+      return choice.message.content;
+    } catch (err) {
+      lastError = err;
+      const isRateLimit = err.status === 429 || 
+                          err.message?.includes('429') || 
+                          err.message?.includes('rate_limit') || 
+                          err.message?.includes('Limit') || 
+                          err.message?.includes('exceeded');
+                          
+      if (isRateLimit && model !== modelChain[modelChain.length - 1]) {
+        console.warn(`[LLM] 429 Rate Limit on ${model} — seamlessly hot-swapping request to next best fallback in chain`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────

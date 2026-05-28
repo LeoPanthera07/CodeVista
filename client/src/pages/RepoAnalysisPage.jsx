@@ -491,144 +491,137 @@ export default function RepoAnalysisPage() {
               <MetricCard icon={ShieldAlert} label="Complexity Status" value="Healthy" color="success" tooltip="Determined relative complexity of AST symbols tree depth and structures." />
             </div>
 
-            <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--sp-6)' }}>
+            {/* Metadata and Stats Dashboard Row */}
+            <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--sp-6)', marginBottom: 'var(--sp-6)' }}>
               
-              {/* Left Column */}
-              <div className="flex flex-col gap-6">
+              {/* Language Distribution */}
+              <GlassCard variant="bordered">
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
+                  Language Distribution
+                </h3>
                 
-                {/* Language Stats Card */}
-                <GlassCard variant="bordered">
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
-                    Language Distribution
-                  </h3>
-                  
-                  {selectedRepo.language_stats ? (
-                    (() => {
-                      const stats = selectedRepo.language_stats;
-                      const total = Object.values(stats).reduce((a, b) => a + b, 0);
-                      const sorted = Object.entries(stats).sort((a, b) => b[1] - a[1]);
-                      
-                      return (
-                        <div>
-                          <div className="lang-bar">
-                            {sorted.map(([lang, count], i) => {
-                              const pct = ((count / total) * 100).toFixed(1);
-                              const bg = langColors[lang.toLowerCase()] || '#94a3b8';
-                              return (
-                                <div
-                                  key={lang}
-                                  className="lang-bar-segment"
-                                  style={{
-                                    width: `${pct}%`,
-                                    backgroundColor: bg,
-                                    height: '100%'
-                                  }}
-                                  title={`${lang}: ${pct}%`}
-                                />
-                              );
-                            })}
-                          </div>
-                          
-                          <div className="lang-bar-legend">
-                            {sorted.map(([lang, count]) => {
-                              const pct = ((count / total) * 100).toFixed(1);
-                              const dotColor = langColors[lang.toLowerCase()] || '#94a3b8';
-                              return (
-                                <div key={lang} className="lang-bar-legend-item">
-                                  <div className="lang-bar-legend-dot" style={{ backgroundColor: dotColor }} />
-                                  <span>{lang} ({pct}%)</span>
-                                </div>
-                              );
-                            })}
-                          </div>
+                {selectedRepo.language_stats ? (
+                  (() => {
+                    const stats = selectedRepo.language_stats;
+                    const total = Object.values(stats).reduce((a, b) => a + b, 0);
+                    const sorted = Object.entries(stats).sort((a, b) => b[1] - a[1]);
+                    
+                    return (
+                      <div>
+                        <div className="lang-bar">
+                          {sorted.map(([lang, count], i) => {
+                            const pct = ((count / total) * 100).toFixed(1);
+                            const bg = langColors[lang.toLowerCase()] || '#94a3b8';
+                            return (
+                              <div
+                                key={lang}
+                                className="lang-bar-segment"
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor: bg,
+                                  height: '100%'
+                                }}
+                                title={`${lang}: ${pct}%`}
+                              />
+                            );
+                          })}
                         </div>
-                      );
-                    })()
-                  ) : (
-                    <span className="text-muted text-xs">No distribution stats parsed.</span>
-                  )}
-                </GlassCard>
+                        
+                        <div className="lang-bar-legend">
+                          {sorted.map(([lang, count]) => {
+                            const pct = ((count / total) * 100).toFixed(1);
+                            const dotColor = langColors[lang.toLowerCase()] || '#94a3b8';
+                            return (
+                              <div key={lang} className="lang-bar-legend-item">
+                                <div className="lang-bar-legend-dot" style={{ backgroundColor: dotColor }} />
+                                <span>{lang} ({pct}%)</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <span className="text-muted text-xs">No distribution stats parsed.</span>
+                )}
+              </GlassCard>
 
-                {/* Tech Stack detection */}
-                <GlassCard variant="bordered">
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-3)' }}>
-                    Architecture & Tech Badges
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="badge badge-primary">Node.js</span>
-                    <span className="badge badge-cyan">Express App</span>
-                    <span className="badge badge-success">SQLite Database</span>
-                    <span className="badge badge-warning">LLaMA 3 Knowledge Engine</span>
-                  </div>
-                </GlassCard>
+              {/* Tech Stack detection */}
+              <GlassCard variant="bordered">
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-3)' }}>
+                  Architecture & Tech Badges
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <span className="badge badge-primary">Node.js</span>
+                  <span className="badge badge-cyan">Express App</span>
+                  <span className="badge badge-success">SQLite Database</span>
+                  <span className="badge badge-warning">LLaMA 3 Knowledge Engine</span>
+                </div>
+              </GlassCard>
 
-                {/* Risks & Indicators */}
-                <GlassCard variant="bordered">
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
-                    Codebase Health Metrics
-                  </h3>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-secondary flex items-center gap-2">
-                        <span className="tooltip-container">
-                          <Info size={14} className="text-success" style={{ cursor: 'help' }} />
-                          <span className="tooltip-text">
-                            Measures the percentage of classes and functions that have descriptive docstrings or comment blocks extracted by AST parsers.
-                          </span>
+              {/* Risks & Indicators */}
+              <GlassCard variant="bordered">
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
+                  Codebase Health Metrics
+                </h3>
+                <div className="flex flex-col gap-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-secondary flex items-center gap-2">
+                      <span className="tooltip-container">
+                        <Info size={14} className="text-success" style={{ cursor: 'help' }} />
+                        <span className="tooltip-text">
+                          Measures the percentage of classes and functions that have descriptive docstrings or comment blocks extracted by AST parsers.
                         </span>
-                        Code Coverage (Docstrings)
                       </span>
-                      <span className="font-mono font-semibold text-success">84%</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-secondary flex items-center gap-2">
-                        <span className="tooltip-container">
-                          <Info size={14} className="text-success" style={{ cursor: 'help' }} />
-                          <span className="tooltip-text">
-                            Evaluates repository connectivity. Looks at circular imports, isolated modules, and ensures cohesive routing connections.
-                          </span>
+                      Code Coverage (Docstrings)
+                    </span>
+                    <span className="font-mono font-semibold text-success">84%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-secondary flex items-center gap-2">
+                      <span className="tooltip-container">
+                        <Info size={14} className="text-success" style={{ cursor: 'help' }} />
+                        <span className="tooltip-text">
+                          Evaluates repository connectivity. Looks at circular imports, isolated modules, and ensures cohesive routing connections.
                         </span>
-                        Dependency Health
                       </span>
-                      <span className="font-mono font-semibold text-success">Excellent</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-secondary flex items-center gap-2">
-                        <span className="tooltip-container">
-                          <AlertTriangle size={14} className="text-warning" style={{ cursor: 'help' }} />
-                          <span className="tooltip-text">
-                            Checks repository nesting complexity. High nesting depth (5+ levels) indicates potential over-modularization or directory clutter.
-                          </span>
+                      Dependency Health
+                    </span>
+                    <span className="font-mono font-semibold text-success">Excellent</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-secondary flex items-center gap-2">
+                      <span className="tooltip-container">
+                        <AlertTriangle size={14} className="text-warning" style={{ cursor: 'help' }} />
+                        <span className="tooltip-text">
+                          Checks repository nesting complexity. High nesting depth (5+ levels) indicates potential over-modularization or directory clutter.
                         </span>
-                        Nested File Depth
                       </span>
-                      <span className="font-mono font-semibold text-warning">Medium (4 levels)</span>
-                    </div>
+                      Nested File Depth
+                    </span>
+                    <span className="font-mono font-semibold text-warning">Medium (4 levels)</span>
                   </div>
-                </GlassCard>
-              </div>
-
-              {/* Right Column */}
-              <div className="flex flex-col gap-6">
-                
-                {/* AI Summary Block */}
-                <GlassCard variant="bordered" className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 text-primary-light">
-                    <Sparkles size={18} />
-                    <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)' }}>
-                      AI Architecture Summary
-                    </h3>
-                  </div>
-                  <div className="text-secondary text-sm leading-relaxed">
-                    {summaries.repository?.[0]?.content ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
-                    ) : (
-                      <p>This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query.</p>
-                    )}
-                  </div>
-                </GlassCard>
-              </div>
+                </div>
+              </GlassCard>
             </div>
+
+            {/* Full-width AI Architecture Summary Block */}
+            <GlassCard variant="bordered" className="flex flex-col gap-3" style={{ width: '100%' }}>
+              <div className="flex items-center gap-2 text-primary-light">
+                <Sparkles size={18} />
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)' }}>
+                  AI Architecture Summary
+                </h3>
+              </div>
+              <div className="text-secondary text-sm leading-relaxed">
+                {summaries.repository?.[0]?.content ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
+                ) : (
+                  <p>This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query.</p>
+                )}
+              </div>
+            </GlassCard>
           </div>
         )}
 
@@ -848,9 +841,13 @@ export default function RepoAnalysisPage() {
                       <Sparkles size={18} />
                       <h3 className="font-bold text-sm">REPOSITORY LEVEL</h3>
                     </div>
-                    <p className="text-secondary text-sm" style={{ lineHeight: 1.6 }}>
-                      {summaries.repository?.[0]?.content || "Repository summary still building..."}
-                    </p>
+                    <div className="text-secondary text-sm leading-relaxed">
+                      {summaries.repository?.[0]?.content ? (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
+                      ) : (
+                        <p>Repository summary still building...</p>
+                      )}
+                    </div>
                   </GlassCard>
 
                   {/* Module Level Accordions */}
