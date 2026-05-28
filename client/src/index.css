@@ -1883,6 +1883,15 @@ h1, h2, h3, h4, h5, h6 {
 .graph-node-function .graph-node-header svg { color: var(--cyan-light); }
 .graph-node-class .graph-node-header svg { color: var(--violet-light); }
 .graph-node-module .graph-node-header svg { color: var(--success-light); }
+.graph-node-folder .graph-node-header svg { color: var(--warning); }
+.graph-node-folder {
+  border-color: rgba(245, 158, 11, 0.25);
+}
+.graph-node-folder.graph-node-selected {
+  border-color: var(--warning);
+  background: rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+}
 
 .graph-legend {
   position: absolute;

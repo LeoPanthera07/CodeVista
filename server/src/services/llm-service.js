@@ -98,39 +98,38 @@ async function chatCompletion(messages, opts = {}) {
  */
 async function generateSummary(context, level, targetName, opts = {}) {
   const prompts = {
-    file: `You are an expert code analyst. Provide a clear, concise summary of the following source file "${targetName}".
-Describe:
-- The file's primary purpose and responsibility
-- Key functions, classes, and exports
-- Important dependencies and relationships
-- Any patterns or frameworks used
-
-Be specific and technical. Write 3-6 sentences.
+    file: `You are an expert code analyst. Provide a clear, comprehensive, and technical summary of the source file "${targetName}".
+The summary should be detailed and highly structured using markdown:
+- Use **bold terms** for key concepts, functions, and variables.
+- Detail the file's primary purpose and architectural responsibility.
+- Explain key classes, exported functions, and API interfaces (if applicable).
+- List major dependencies and relationships with other files.
+- Mention specific patterns, standards, or frameworks utilized (e.g., MVC, singleton, React, Express).
+- When mentioning code, use inline code formatting (e.g., \`myFunction\`).
 
 Source code and symbols:
 ${truncate(context, 12000)}`,
 
-    module: `You are an expert code analyst. Summarize the following module/directory "${targetName}".
-Describe:
-- The module's overall responsibility
-- How the files within it relate to each other
-- Key abstractions and interfaces exposed
-- Design patterns used
+    module: `You are an expert code analyst. Provide a detailed, professional architectural summary of the module/directory "${targetName}".
+Write a highly structured description utilizing rich markdown:
+- **Module Core Responsibility**: Detailed breakdown of what this directory does and its role in the overall system.
+- **File Interrelationships**: How the files inside this directory relate to each other and coordinate to achieve their goals.
+- **Key Abstractions & Interfaces**: Main classes, utilities, and public interfaces exported by this module.
+- **Design Patterns & Architecture**: Design patterns, middleware usage, or conventions followed inside this module.
 
-Write a clear 4-8 sentence summary.
+Use bullet points, bold headers, and structured tables where helpful to summarize file responsibilities.
 
 Files and summaries in this module:
 ${truncate(context, 12000)}`,
 
-    repository: `You are an expert code analyst. Provide a comprehensive summary of the repository "${targetName}".
-Describe:
-- The project's purpose and what problem it solves
-- Architecture and tech stack
-- Key modules and how they interact
-- Entry points and main workflows
-- Code quality observations
+    repository: `You are an expert code analyst. Provide a comprehensive, high-fidelity technical summary of the entire repository "${targetName}".
+Format the summary with beautiful markdown using headers, bullet lists, and bold callouts:
+- **Overview & Vision**: What problem the codebase solves and its primary purpose.
+- **Architecture & Tech Stack**: In-depth description of the frameworks, libraries, databases, and architectural patterns.
+- **Key Subsystems & Modules**: How major folders interact, highlighting entry points and data flows.
+- **Codebase Observations**: Technical strengths, architectural clean-code patterns, and potential optimization points.
 
-Write a thorough 6-12 sentence summary.
+Be highly technical, precise, and thorough.
 
 Repository structure and module summaries:
 ${truncate(context, 14000)}`,
@@ -192,51 +191,46 @@ ${truncate(repoContext, 14000)}`;
  */
 async function generateDocumentation(repoContext, docType, repoName, opts = {}) {
   const typePrompts = {
-    readme: `Generate a professional README.md for the project "${repoName}".
-Include:
-- Project title and description
-- Key features
-- Tech stack
-- Getting started (installation, configuration, running)
-- Project structure overview
-- API endpoints (if applicable)
-- Contributing guidelines placeholder
-- License placeholder
+    readme: `Generate a professional, production-grade README.md for the project "${repoName}".
+The README must be visually stunning and comprehensive. Use rich GitHub Markdown (GFM) including:
+- **Title and Description**: A compelling, clear summary of what the project is and its core value proposition.
+- **Key Features**: Highlight features using bullet lists and bold key phrases.
+- **Tech Stack Table**: Use a markdown table mapping technologies, versions, and their usage in the project.
+- **Directory Structure Overview**: Display a clean visual directory tree structure using standard file tree characters (e.g. └──, ├──) and describe the main components.
+- **Getting Started**: Precise installation, environment configuration, and run instructions, wrapped in fenced shell code blocks.
+- **API Reference**: If applicable, a markdown table showing method, endpoint, parameters, and return payloads.
+- **Alerts**: Highlight special notices or deployment cautions using GitHub alert syntax (e.g., \`> [!IMPORTANT]\`, \`> [!NOTE]\`).
 
-Use markdown formatting.`,
+Make it extremely polished, detailed, and directly usable.`,
 
-    onboarding: `Generate a developer onboarding guide for "${repoName}".
-Include:
-- Project overview and architecture
-- Development environment setup
-- Key concepts and terminology
-- Directory structure walkthrough
-- Common development workflows
-- Code conventions and patterns used
-- Where to find things (entry points, config, tests)
-- Tips for new contributors`,
+    onboarding: `Generate a comprehensive Developer Onboarding & Guide for the codebase "${repoName}".
+It should be exceptionally detailed and readable, utilizing high-quality formatting:
+- **Architecture Overview**: Deep dive into the system's design and programming flow. Use callouts like \`> [!TIP]\` for development recommendations.
+- **Environment Setup**: Standard commands, node versions, and configuration files, in markdown code blocks.
+- **Core Concepts**: Glossary of terms, structures, and business logic specific to the app.
+- **File Walkthrough**: Detailed explanations of key modules and entry points (e.g., controllers, router, services, page layouts).
+- **Coding Conventions**: Best practices, lint rules, patterns (like async/await wrappers, error handlers, state management) utilized in this repo.
+- **First Contribution Check-list**: Concrete steps for setting up a branch, creating a commit, running tests, and pushing a pull request.`,
 
-    architecture: `Generate an architecture document for "${repoName}".
-Include:
-- System overview and design philosophy
-- High-level architecture diagram description
-- Component/module breakdown
-- Data flow and request lifecycle
-- Key design patterns and decisions
-- External dependencies and integrations
-- Security considerations
-- Scalability notes`,
+    architecture: `Generate an in-depth System Architecture and Design Blueprint document for "${repoName}".
+Ensure it is written like an enterprise system architect's report:
+- **System Overview & Philosophy**: Design pillars, key architectural choices (e.g., modular, clean architecture, service-oriented).
+- **High-Level Component Breakdown**: Descriptive high-level model, detailing frontend vs. backend, database flow, and communication layers.
+- **Data Lifecycle & Request Flows**: Step-by-step description of what happens from a client request or user interaction to a database change.
+- **Design Decisions Table**: A markdown table showing "Decision", "Design Choice Chosen", "Alternatives Considered", and "Rationale".
+- **Integrations & Third-Party Dependencies**: Services, libraries, or APIs the project relies on, explaining *why* they were chosen.
+- **Security & Performance Principles**: Authentication strategies, rate limiting, token storage, database indexing, and caching schemes.`,
 
-    module: `Generate module-level documentation for "${repoName}".
-For each major module/directory, provide:
-- Module purpose and responsibility
-- Public API / exported interfaces
-- Internal structure
-- Dependencies on other modules
-- Usage examples`,
+    module: `Generate a detailed Module-by-Module Walkthrough and Reference Guide for the codebase "${repoName}".
+For each key subdirectory/feature module in the codebase:
+- **Module Purpose**: Clear, deep-dive explanation of what files in this folder accomplish.
+- **Interfaces & Exports**: A markdown table or list documenting the main functions, React components, hooks, or API routes exported, with detailed signatures.
+- **Sub-system Interaction**: Explain how this specific module communicates with and depends on other parts of the repository.
+- **Code Usage Snippet**: Provide a concrete, copy-pasteable example showing how to import and use the components or services in this module.
+- **Warnings & Edge Cases**: Highlight critical usage cautions using \`> [!WARNING]\` alerts.`,
   };
 
-  const systemMsg = 'You are a technical writer generating clear, accurate documentation from code analysis. Use markdown formatting throughout.';
+  const systemMsg = 'You are an elite technical writer generating precise, accurate, and comprehensive documentation from code analysis. Always use rich, modern markdown formatting (tables, lists, alerts, and code blocks) throughout.';
   const userMsg = `${typePrompts[docType] || typePrompts.readme}
 
 Repository analysis data:

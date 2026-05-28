@@ -5,7 +5,8 @@ import remarkGfm from 'remark-gfm';
 import {
   Code2, Cpu, MessageSquare, BookOpen, ShieldAlert, RefreshCw, FileText, Send,
   Terminal, AlertTriangle, ChevronDown, ChevronRight, Copy, Download, Search,
-  Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles, Layers, Trash2
+  Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles, Layers, Trash2,
+  Folder
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import api from '../services/api';
@@ -196,18 +197,14 @@ export default function RepoAnalysisPage() {
   // ── File details fetcher ──
   const handleFileClick = async (fileNode) => {
     setSelectedFile(fileNode);
+    if (!fileNode || fileNode.type === 'folder' || fileNode.type === 'directory') {
+      setFileDetails(null);
+      return;
+    }
     setDetailsLoading(true);
     try {
-      const res = await api.getRepositoryFiles(id); // load detailed via endpoint below
-      const details = await api.getRepository(id); // fallbacks if individual files route requires specifics
-      // We call the file content details endpoint
-      const response = await fetch(`/api/repositories/${id}/files/${fileNode.id}`);
-      if (response.ok) {
-        const json = await response.json();
-        setFileDetails(json.data);
-      } else {
-        throw new Error('Failed to load file content');
-      }
+      const res = await api.getFileDetails(id, fileNode.id);
+      setFileDetails(res.data);
     } catch (err) {
       addToast({ type: 'error', title: 'File read error', message: err.message });
       setFileDetails(null);
@@ -480,7 +477,7 @@ export default function RepoAnalysisPage() {
       </div>
 
       {/* ── Page Content — full height scroll ── */}
-      <div className="flex-1" style={{ overflowY: activeTab === 'structure' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1" style={{ overflowY: ['structure', 'docs', 'chat'].includes(activeTab) ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
         
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
@@ -645,12 +642,81 @@ export default function RepoAnalysisPage() {
             </div>
 
             {/* Right Pane: dependency graph or file details */}
-            <div className="flex-1 flex flex-col" style={{ background: 'var(--bg-deepest)', height: '100%' }}>
+            <div className="flex-1 flex flex-col" style={{ background: 'var(--bg-deepest)', height: '100%', minHeight: 0 }}>
               {selectedFile ? (
-                // File Inspector details
+                // File/Folder Inspector details
                 detailsLoading ? (
                   <div className="flex-1 flex items-center justify-center">
                     <Spinner />
+                  </div>
+                ) : (selectedFile.type === 'folder' || selectedFile.type === 'directory') ? (
+                  // Folder Inspector Details
+                  <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ padding: 'var(--sp-6)', overflowY: 'auto' }}>
+                    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
+                      
+                      {/* Folder Title Card */}
+                      <div className="glass-card flex items-center gap-4" style={{ borderLeft: '4px solid var(--warning)' }}>
+                        <div style={{ background: 'var(--warning-bg)', padding: 'var(--sp-3)', borderRadius: 'var(--radius-md)' }}>
+                          <Folder size={32} className="text-warning-light" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold text-primary-light">{selectedFile.label}</h2>
+                          <p className="text-xs text-muted font-mono" style={{ marginTop: 2 }}>{selectedFile.path || '/'}</p>
+                        </div>
+                      </div>
+
+                      {/* Directory Module Summary */}
+                      <div className="glass-card">
+                        <h3 className="text-secondary font-semibold text-sm flex items-center gap-2" style={{ marginBottom: 'var(--sp-3)' }}>
+                          <Sparkles size={16} className="text-warning-light" /> Module Intelligence
+                        </h3>
+                        {(() => {
+                          const modSummary = summaries.module?.find(
+                            (s) => s.target_name === selectedFile.path || 
+                                   s.target_name === selectedFile.label
+                          );
+                          return modSummary ? (
+                            <div className="text-sm text-secondary leading-relaxed">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{modSummary.content}</ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted italic">
+                              No specific AI module summary found for this directory level. Explore subfiles to see detailed summaries.
+                            </p>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Sub-files and Folders list */}
+                      <div className="glass-card">
+                        <h3 className="text-secondary font-semibold text-sm" style={{ marginBottom: 'var(--sp-3)' }}>
+                          Directory Contents
+                        </h3>
+                        <div className="flex flex-col gap-2">
+                          {(() => {
+                            const subFiles = flatFiles.filter(f => 
+                              selectedFile.path === '' ? !f.path.includes('/') : f.path.startsWith(selectedFile.path + '/')
+                            );
+                            if (subFiles.length === 0) return <p className="text-xs text-muted italic">Empty directory</p>;
+                            return subFiles.slice(0, 15).map((file, idx) => (
+                              <div 
+                                key={idx} 
+                                className="flex items-center justify-between p-2 rounded hover:bg-hover cursor-pointer"
+                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', transition: 'all 0.2s' }}
+                                onClick={() => handleFileClick(file)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <FileCode size={14} className="text-primary-light" />
+                                  <span className="text-xs font-mono text-secondary">{file.path}</span>
+                                </div>
+                                <span className="text-xs text-muted">{(file.size / 1024).toFixed(1)} KB</span>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
                 ) : fileDetails ? (
                   <div className="flex-1 flex" style={{ overflow: 'hidden' }}>
@@ -995,14 +1061,14 @@ export default function RepoAnalysisPage() {
             </div>
 
             {/* Right Doc Inspector */}
-            <div className="flex-1 flex flex-col" style={{ background: 'var(--bg-deepest)', height: '100%', overflow: 'hidden' }}>
+            <div className="flex-1 flex flex-col" style={{ background: 'var(--bg-deepest)', height: '100%', overflow: 'hidden', minHeight: 0 }}>
               {docLoading ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted">
                   <Spinner size="lg" />
                   <span className="text-sm font-medium animate-pulse">Running semantic models for documentation...</span>
                 </div>
               ) : activeDoc ? (
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
+                <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ minHeight: 0 }}>
                   <div style={{ padding: 'var(--sp-3) var(--sp-6)', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-deep)' }}>
                     <span className="font-bold text-sm text-secondary">{activeDoc.title || activeDoc.type.toUpperCase()}</span>
                     <div className="flex gap-2">

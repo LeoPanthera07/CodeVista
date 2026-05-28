@@ -188,6 +188,9 @@ const api = {
   getRepositoryFiles: (id) =>
     request(`/repositories/${id}/files`),
 
+  getFileDetails: (id, fileId) =>
+    request(`/repositories/${id}/files/${fileId}`),
+
   // Chat
   sendChatMessage: (id, message, onChunk) =>
     streamRequest(`/repositories/${id}/chat`, { message }, onChunk),

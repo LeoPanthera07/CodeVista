@@ -501,14 +501,71 @@ function getRepositoryMap(repoId) {
     [repoId],
   );
 
-  const nodes = files.map((f) => ({
-    id: f.id,
-    label: f.name,
-    path: f.path,
-    extension: f.extension,
-    symbolCount: f.symbol_count,
-    type: 'file',
-  }));
+  const nodes = [];
+  const edges = [];
+  const addedDirs = new Set();
+
+  // Always add the root directory node
+  nodes.push({
+    id: 'dir-root',
+    label: '/',
+    path: '',
+    extension: null,
+    symbolCount: 0,
+    type: 'folder',
+  });
+
+  files.forEach((f) => {
+    // Add the file node
+    nodes.push({
+      id: f.id,
+      label: f.name,
+      path: f.path,
+      extension: f.extension,
+      symbolCount: f.symbol_count,
+      type: 'file',
+    });
+
+    // Parse directory hierarchy from file path
+    const parts = f.path.split('/');
+    let currentPath = '';
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      const parentPath = currentPath;
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      const dirId = `dir-${currentPath}`;
+
+      if (!addedDirs.has(dirId)) {
+        addedDirs.add(dirId);
+        nodes.push({
+          id: dirId,
+          label: part,
+          path: currentPath,
+          extension: null,
+          symbolCount: 0,
+          type: 'folder',
+        });
+
+        // Link folder to its parent folder
+        const parentId = parentPath ? `dir-${parentPath}` : 'dir-root';
+        edges.push({
+          source: parentId,
+          target: dirId,
+          type: 'folder-nest',
+        });
+      }
+    }
+
+    // Connect the file to its immediate parent directory
+    const immediateParentPath = parts.slice(0, -1).join('/');
+    const immediateParentId = immediateParentPath ? `dir-${immediateParentPath}` : 'dir-root';
+    edges.push({
+      source: immediateParentId,
+      target: f.id,
+      type: 'folder-nest',
+    });
+  });
 
   // Edges: relationships (imports between files)
   const rels = getAll(
@@ -516,11 +573,13 @@ function getRepositoryMap(repoId) {
     [repoId],
   );
 
-  const edges = rels.map((r) => ({
-    source: r.source_file_id,
-    target: r.target_file_id,
-    type: r.type,
-  }));
+  rels.forEach((r) => {
+    edges.push({
+      source: r.source_file_id,
+      target: r.target_file_id,
+      type: r.type,
+    });
+  });
 
   return { nodes, edges };
 }
