@@ -176,7 +176,8 @@ export default function RepoAnalysisPage() {
         const res = await api.getDocumentation(id);
         setDocsList(res.data || []);
         if (res.data && res.data.length > 0) {
-          setActiveDoc(res.data[0]);
+          const match = res.data.find(d => d.type === docType);
+          setActiveDoc(match || res.data[0]);
         }
       } catch { /* ignore */ }
     };
@@ -967,7 +968,11 @@ export default function RepoAnalysisPage() {
                   ].map((doc) => (
                     <button
                       key={doc.id}
-                      onClick={() => setDocType(doc.id)}
+                      onClick={() => {
+                        setDocType(doc.id);
+                        const match = docsList.find(d => d.type === doc.id);
+                        setActiveDoc(match || null);
+                      }}
                       className={`btn btn-sm ${docType === doc.id ? 'btn-primary' : 'btn-secondary'}`}
                       style={{ justifyContent: 'flex-start' }}
                     >

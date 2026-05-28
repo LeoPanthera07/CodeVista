@@ -127,7 +127,7 @@ function buildDocContext(repoId, repoName) {
  */
 function getDocumentation(repoId) {
   return getAll(
-    `SELECT id, repo_id, type, title, created_at FROM documentation WHERE repo_id = ? ORDER BY created_at DESC`,
+    `SELECT * FROM documentation WHERE repo_id = ? ORDER BY created_at DESC`,
     [repoId],
   );
 }
