@@ -1002,17 +1002,28 @@ h1, h2, h3, h4, h5, h6 {
   overflow-y: auto;
 }
 .file-tree-search {
-  padding: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--glass-border);
 }
-.file-tree-search .input-field {
-  padding: var(--sp-2) var(--sp-3);
-  font-size: var(--text-sm);
+.file-tree-search .input-with-icon .input-field {
+  padding-left: calc(var(--sp-4) + 14px + var(--sp-2)) !important;
+  padding-right: var(--sp-3) !important;
+  padding-top: var(--sp-2) !important;
+  padding-bottom: var(--sp-2) !important;
+  font-size: var(--text-xs) !important;
   background: var(--bg-base);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.file-tree-search .input-with-icon .input-icon {
+  left: var(--sp-3) !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--text-muted);
 }
 
 .file-tree-list {
-  padding: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
 }
 
 .file-tree-item {
