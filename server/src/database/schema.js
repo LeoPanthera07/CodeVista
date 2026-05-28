@@ -98,7 +98,7 @@ function initializeSchema(db) {
       repo_id     TEXT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
       role        TEXT NOT NULL CHECK(role IN ('user','assistant','system')),
       content     TEXT NOT NULL,
-      references  TEXT,                -- JSON array of { fileId, symbolName, line }
+      "references" TEXT,                -- JSON array of { fileId, symbolName, line }
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_chat_repo ON chat_messages(repo_id);
