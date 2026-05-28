@@ -1,5 +1,4 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // Premium Fonts
@@ -7,7 +6,7 @@ import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';
 
 // Global Context Provider
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 
 // Shared Components
 import Navbar from './components/Navbar';
@@ -15,6 +14,8 @@ import ToastContainer from './components/Toast';
 
 // Pages
 import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import ConnectRepoPage from './pages/ConnectRepoPage';
 import RepoAnalysisPage from './pages/RepoAnalysisPage';
@@ -34,9 +35,28 @@ function PageTransition({ children }) {
   );
 }
 
+// Route Guard for Private / Protected routes
+function ProtectedRoute({ children }) {
+  const { state } = useApp();
+  if (!state.token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+// Route Guard for Public-Only routes (like login/signup)
+function PublicOnlyRoute({ children }) {
+  const { state } = useApp();
+  if (state.token) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 // Router content to support useLocation for transitions
 function AppContent() {
   const location = useLocation();
+  const { state } = useApp();
 
   return (
     <>
@@ -53,10 +73,32 @@ function AppContent() {
             }
           />
           <Route
+            path="/login"
+            element={
+              <PageTransition>
+                <PublicOnlyRoute>
+                  <LoginPage />
+                </PublicOnlyRoute>
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PageTransition>
+                <PublicOnlyRoute>
+                  <SignupPage />
+                </PublicOnlyRoute>
+              </PageTransition>
+            }
+          />
+          <Route
             path="/dashboard"
             element={
               <PageTransition>
-                <DashboardPage />
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
               </PageTransition>
             }
           />
@@ -64,7 +106,9 @@ function AppContent() {
             path="/connect"
             element={
               <PageTransition>
-                <ConnectRepoPage />
+                <ProtectedRoute>
+                  <ConnectRepoPage />
+                </ProtectedRoute>
               </PageTransition>
             }
           />
@@ -72,17 +116,17 @@ function AppContent() {
             path="/repo/:id"
             element={
               <PageTransition>
-                <RepoAnalysisPage />
+                <ProtectedRoute>
+                  <RepoAnalysisPage />
+                </ProtectedRoute>
               </PageTransition>
             }
           />
-          {/* Catch-all redirect to landing */}
+          {/* Catch-all redirect based on login status */}
           <Route
             path="*"
             element={
-              <PageTransition>
-                <LandingPage />
-              </PageTransition>
+              <Navigate to={state.token ? "/dashboard" : "/"} replace />
             }
           />
         </Routes>

@@ -15,7 +15,8 @@ router.post(
   validateRepoId,
   validateDocType,
   asyncHandler(async (req, res) => {
-    const doc = await docService.generateDocumentation(req.params.id, req.body.type);
+    const customApiKey = req.headers['x-groq-api-key'] || req.user?.groq_api_key;
+    const doc = await docService.generateDocumentation(req.params.id, req.body.type, customApiKey);
     res.status(201).json({ success: true, data: doc });
   }),
 );

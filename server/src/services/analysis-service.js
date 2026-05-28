@@ -297,6 +297,14 @@ async function generateAllSummaries(repoId) {
   const repo = getOne('SELECT * FROM repositories WHERE id = ?', [repoId]);
   if (!repo) return;
 
+  const user = getOne(
+    `SELECT u.groq_api_key FROM users u
+     JOIN repositories r ON r.user_id = u.id
+     WHERE r.id = ?`,
+    [repoId]
+  );
+  const opts = { apiKey: user?.groq_api_key || undefined };
+
   // ── File-level summaries (for key files only to avoid API overload) ──
   const keyFiles = getAll(
     `SELECT f.id, f.path, f.name, f.content, f.extension
@@ -318,7 +326,7 @@ async function generateAllSummaries(repoId) {
 
       const context = `File: ${file.path}\n\nSymbols:\n${symbols.map((s) => `- ${s.type}: ${s.signature || s.name}`).join('\n')}\n\nSource (first 200 lines):\n${(file.content || '').split('\n').slice(0, 200).join('\n')}`;
 
-      const summary = await llm.generateSummary(context, 'file', file.path);
+      const summary = await llm.generateSummary(context, 'file', file.path, opts);
       run(
         `INSERT INTO summaries (id, repo_id, level, target_id, target_name, content) VALUES (?, ?, 'file', ?, ?, ?)`,
         [uuidv4(), repoId, file.id, file.path, summary],
@@ -352,7 +360,7 @@ async function generateAllSummaries(repoId) {
       if (fileSummaries.length === 0) continue;
 
       const context = fileSummaries.map((s) => `${s.target_name}: ${s.content}`).join('\n\n');
-      const summary = await llm.generateSummary(context, 'module', dir_name);
+      const summary = await llm.generateSummary(context, 'module', dir_name, opts);
       run(
         `INSERT INTO summaries (id, repo_id, level, target_id, target_name, content) VALUES (?, ?, 'module', NULL, ?, ?)`,
         [uuidv4(), repoId, dir_name, summary],
@@ -371,7 +379,7 @@ async function generateAllSummaries(repoId) {
     const fileTree = buildFileTreeString(repoId);
     const context = `File tree:\n${fileTree}\n\nSummaries:\n${allSummaries.map((s) => `[${s.level}] ${s.target_name}: ${s.content}`).join('\n\n')}`;
 
-    const summary = await llm.generateSummary(context, 'repository', repo.name);
+    const summary = await llm.generateSummary(context, 'repository', repo.name, opts);
     run(
       `INSERT INTO summaries (id, repo_id, level, target_id, target_name, content) VALUES (?, ?, 'repository', NULL, ?, ?)`,
       [uuidv4(), repoId, repo.name, summary],

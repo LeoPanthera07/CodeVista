@@ -15,7 +15,8 @@ router.post(
   validateRepoId,
   validateChatMessage,
   asyncHandler(async (req, res) => {
-    const reply = await chatService.sendMessage(req.params.id, req.body.message);
+    const customApiKey = req.headers['x-groq-api-key'] || req.user?.groq_api_key;
+    const reply = await chatService.sendMessage(req.params.id, req.body.message, customApiKey);
     res.json({ success: true, data: reply });
   }),
 );

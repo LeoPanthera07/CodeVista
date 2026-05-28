@@ -9,9 +9,10 @@ const llm = require('./llm-service');
  *
  * @param {string} repoId  — Repository to chat about
  * @param {string} message — User's question
+ * @param {string} [customApiKey] — Optional custom user API key
  * @returns {Promise<object>} The assistant message record
  */
-async function sendMessage(repoId, message) {
+async function sendMessage(repoId, message, customApiKey) {
   if (!message || typeof message !== 'string' || !message.trim()) {
     throw new Error('Message cannot be empty');
   }
@@ -39,7 +40,7 @@ async function sendMessage(repoId, message) {
   const filteredHistory = history.filter((m) => !(m.role === 'user' && m.content === message.trim()));
 
   // Get LLM answer
-  const { answer, references } = await llm.answerQuestion(message, repoContext, filteredHistory);
+  const { answer, references } = await llm.answerQuestion(message, repoContext, filteredHistory, { apiKey: customApiKey });
 
   // Store assistant reply
   const assistantMsgId = uuidv4();

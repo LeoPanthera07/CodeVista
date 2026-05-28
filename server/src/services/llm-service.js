@@ -65,7 +65,13 @@ async function acquireToken() {
 async function chatCompletion(messages, opts = {}) {
   await acquireToken();
 
-  const client = getClient();
+  let client;
+  if (opts.apiKey) {
+    client = new Groq({ apiKey: opts.apiKey });
+  } else {
+    client = getClient();
+  }
+
   const response = await client.chat.completions.create({
     model: opts.model || MODEL,
     messages,
@@ -90,7 +96,7 @@ async function chatCompletion(messages, opts = {}) {
  * @param {string} targetName  — Filename, module name, or repo name
  * @returns {Promise<string>}
  */
-async function generateSummary(context, level, targetName) {
+async function generateSummary(context, level, targetName, opts = {}) {
   const prompts = {
     file: `You are an expert code analyst. Provide a clear, concise summary of the following source file "${targetName}".
 Describe:
@@ -136,7 +142,7 @@ ${truncate(context, 14000)}`,
   return chatCompletion([
     { role: 'system', content: systemMsg },
     { role: 'user', content: userMsg },
-  ]);
+  ], opts);
 }
 
 /**
@@ -147,7 +153,7 @@ ${truncate(context, 14000)}`,
  * @param {Array<{role: string, content: string}>} chatHistory — Previous messages
  * @returns {Promise<{answer: string, references: object[]}>}
  */
-async function answerQuestion(question, repoContext, chatHistory = []) {
+async function answerQuestion(question, repoContext, chatHistory = [], opts = {}) {
   const systemMsg = `You are CodeVista, an AI assistant that helps developers understand codebases.
 You have access to the repository's code, symbols, and summaries provided below.
 
@@ -168,7 +174,7 @@ ${truncate(repoContext, 14000)}`;
     { role: 'user', content: question },
   ];
 
-  const answer = await chatCompletion(messages);
+  const answer = await chatCompletion(messages, opts);
 
   // Extract references from the answer (best-effort pattern matching)
   const references = extractReferences(answer);
@@ -184,7 +190,7 @@ ${truncate(repoContext, 14000)}`;
  * @param {string} repoName
  * @returns {Promise<string>}
  */
-async function generateDocumentation(repoContext, docType, repoName) {
+async function generateDocumentation(repoContext, docType, repoName, opts = {}) {
   const typePrompts = {
     readme: `Generate a professional README.md for the project "${repoName}".
 Include:
@@ -239,7 +245,7 @@ ${truncate(repoContext, 14000)}`;
   return chatCompletion([
     { role: 'system', content: systemMsg },
     { role: 'user', content: userMsg },
-  ]);
+  ], opts);
 }
 
 // ── Context builders ────────────────────────────────────────────────────────

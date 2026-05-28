@@ -15,6 +15,17 @@ const initialState = {
 
   sidebarOpen: true,
   mobileMenuOpen: false,
+
+  // Auth State
+  user: localStorage.getItem('codevista_user') ? (() => {
+    try {
+      return JSON.parse(localStorage.getItem('codevista_user'));
+    } catch {
+      return null;
+    }
+  })() : null,
+  token: localStorage.getItem('codevista_token') || null,
+  groqApiKey: localStorage.getItem('codevista_groq_api_key') || null,
 };
 
 function appReducer(state, action) {
@@ -71,6 +82,47 @@ function appReducer(state, action) {
       return { ...state, sidebarOpen: !state.sidebarOpen };
     case 'SET_MOBILE_MENU':
       return { ...state, mobileMenuOpen: action.payload };
+
+    case 'LOGIN_SUCCESS':
+      localStorage.setItem('codevista_token', action.payload.token);
+      localStorage.setItem('codevista_user', JSON.stringify(action.payload.user));
+      if (action.payload.user.groq_api_key) {
+        localStorage.setItem('codevista_groq_api_key', action.payload.user.groq_api_key);
+      } else {
+        localStorage.removeItem('codevista_groq_api_key');
+      }
+      return {
+        ...state,
+        token: action.payload.token,
+        user: action.payload.user,
+        groqApiKey: action.payload.user.groq_api_key || null,
+      };
+
+    case 'LOGOUT':
+      localStorage.removeItem('codevista_token');
+      localStorage.removeItem('codevista_user');
+      localStorage.removeItem('codevista_groq_api_key');
+      return {
+        ...state,
+        token: null,
+        user: null,
+        groqApiKey: null,
+        repositories: [],
+        selectedRepo: null,
+        chatMessages: [],
+      };
+
+    case 'UPDATE_USER_KEY':
+      if (action.payload) {
+        localStorage.setItem('codevista_groq_api_key', action.payload);
+      } else {
+        localStorage.removeItem('codevista_groq_api_key');
+      }
+      return {
+        ...state,
+        groqApiKey: action.payload || null,
+        user: state.user ? { ...state.user, groq_api_key: action.payload || null } : null,
+      };
 
     default:
       return state;

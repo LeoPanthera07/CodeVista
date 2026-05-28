@@ -12,10 +12,22 @@ class ApiError extends Error {
 async function request(endpoint, options = {}) {
   const { body, method = 'GET', headers = {}, retries = 2, ...rest } = options;
 
+  const token = localStorage.getItem('codevista_token');
+  const apiKey = localStorage.getItem('codevista_groq_api_key');
+
+  const authHeaders = {};
+  if (token) {
+    authHeaders['Authorization'] = `Bearer ${token}`;
+  }
+  if (apiKey) {
+    authHeaders['x-groq-api-key'] = apiKey;
+  }
+
   const config = {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders,
       ...headers,
     },
     ...rest,
@@ -62,9 +74,20 @@ async function request(endpoint, options = {}) {
 
 // Streaming request for chat
 async function streamRequest(endpoint, body, onChunk) {
+  const token = localStorage.getItem('codevista_token');
+  const apiKey = localStorage.getItem('codevista_groq_api_key');
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (apiKey) {
+    headers['x-groq-api-key'] = apiKey;
+  }
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
 
@@ -116,6 +139,19 @@ async function streamRequest(endpoint, body, onChunk) {
 }
 
 const api = {
+  // Auth
+  signup: (email, password) =>
+    request('/auth/signup', { method: 'POST', body: { email, password } }),
+
+  login: (email, password) =>
+    request('/auth/login', { method: 'POST', body: { email, password } }),
+
+  getMe: () =>
+    request('/auth/me'),
+
+  updateApiKey: (groq_api_key) =>
+    request('/auth/key', { method: 'PUT', body: { groq_api_key } }),
+
   // Repositories
   connectRepository: (url, options = {}) =>
     request('/repositories/connect', { method: 'POST', body: { url, ...options } }),

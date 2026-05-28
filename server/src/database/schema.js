@@ -8,10 +8,23 @@
 function initializeSchema(db) {
   db.exec(`
     -- ════════════════════════════════════════════════════════════
+    -- Users
+    -- ════════════════════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS users (
+      id              TEXT PRIMARY KEY,
+      email           TEXT UNIQUE NOT NULL,
+      password_hash   TEXT NOT NULL,
+      groq_api_key    TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- ════════════════════════════════════════════════════════════
     -- Repositories
     -- ════════════════════════════════════════════════════════════
     CREATE TABLE IF NOT EXISTS repositories (
       id              TEXT PRIMARY KEY,
+      user_id         TEXT REFERENCES users(id) ON DELETE CASCADE,
       name            TEXT NOT NULL,
       url             TEXT,
       type            TEXT NOT NULL CHECK(type IN ('git','upload')),

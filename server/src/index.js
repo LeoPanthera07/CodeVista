@@ -21,11 +21,13 @@ const morgan = require('morgan');
 const { getDb, closeDb } = require('./database/db');
 
 // Routes
+const authRoutes = require('./routes/auth-routes');
 const repositoryRoutes = require('./routes/repository-routes');
 const chatRoutes = require('./routes/chat-routes');
 const documentationRoutes = require('./routes/documentation-routes');
 
 // Middleware
+const { authenticateToken, verifyRepoOwnership } = require('./middleware/auth');
 const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -69,9 +71,10 @@ app.get('/api/health', (_req, res) => {
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
-app.use('/api/repositories', repositoryRoutes);
-app.use('/api/repositories/:id/chat', chatRoutes);
-app.use('/api/repositories/:id/documentation', documentationRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/repositories', authenticateToken, repositoryRoutes);
+app.use('/api/repositories/:id/chat', authenticateToken, verifyRepoOwnership, chatRoutes);
+app.use('/api/repositories/:id/documentation', authenticateToken, verifyRepoOwnership, documentationRoutes);
 
 // ── Serve React client in production ────────────────────────────────────────
 

@@ -22,7 +22,7 @@ const UPLOADS_DIR = path.resolve(__dirname, '..', '..', process.env.UPLOADS_DIR 
  * @param {string} url — HTTPS Git URL to clone
  * @returns {Promise<object>} The created repository record
  */
-async function cloneRepository(url) {
+async function cloneRepository(url, userId) {
   if (!url || typeof url !== 'string') {
     throw new Error('A valid Git URL is required');
   }
@@ -36,8 +36,8 @@ async function cloneRepository(url) {
 
   // Create DB record first (status = cloning)
   run(
-    `INSERT INTO repositories (id, name, url, type, status) VALUES (?, ?, ?, 'git', 'cloning')`,
-    [id, name, url],
+    `INSERT INTO repositories (id, user_id, name, url, type, status) VALUES (?, ?, ?, ?, 'git', 'cloning')`,
+    [id, userId, name, url],
   );
 
   try {
@@ -64,7 +64,7 @@ async function cloneRepository(url) {
  * @param {object} file — multer file object { path, originalname, size }
  * @returns {object} The created repository record
  */
-function uploadRepository(file) {
+function uploadRepository(file, userId) {
   if (!file) throw new Error('No file uploaded');
 
   const id = uuidv4();
@@ -73,8 +73,8 @@ function uploadRepository(file) {
 
   // Create DB record
   run(
-    `INSERT INTO repositories (id, name, url, type, status) VALUES (?, ?, NULL, 'upload', 'pending')`,
-    [id, name],
+    `INSERT INTO repositories (id, user_id, name, url, type, status) VALUES (?, ?, ?, NULL, 'upload', 'pending')`,
+    [id, userId, name],
   );
 
   try {
@@ -130,8 +130,8 @@ function getRepository(id) {
  *
  * @returns {object[]}
  */
-function listRepositories() {
-  const repos = getAll('SELECT * FROM repositories ORDER BY created_at DESC');
+function listRepositories(userId) {
+  const repos = getAll('SELECT * FROM repositories WHERE user_id = ? ORDER BY created_at DESC', [userId]);
   return repos.map((repo) => {
     if (repo.language_stats) {
       try { repo.language_stats = JSON.parse(repo.language_stats); } catch { /* ok */ }

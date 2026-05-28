@@ -12,6 +12,7 @@ const {
 } = require('../middleware/validators');
 const repoService = require('../services/repository-service');
 const analysisService = require('../services/analysis-service');
+const { verifyRepoOwnership } = require('../middleware/auth');
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.post(
   '/connect',
   validateGitUrl,
   asyncHandler(async (req, res) => {
-    const repo = await repoService.cloneRepository(req.body.url);
+    const repo = await repoService.cloneRepository(req.body.url, req.user.id);
 
     // Kick off analysis in the background
     analysisService.analyzeRepository(repo.id).catch((err) => {
@@ -56,7 +57,7 @@ router.post(
   upload.single('file'),
   validateFileUpload,
   asyncHandler(async (req, res) => {
-    const repo = repoService.uploadRepository(req.file);
+    const repo = repoService.uploadRepository(req.file, req.user.id);
 
     // Kick off analysis in the background
     analysisService.analyzeRepository(repo.id).catch((err) => {
@@ -72,11 +73,16 @@ router.post(
 // ═════════════════════════════════════════════════════════════════════════════
 router.get(
   '/',
-  asyncHandler(async (_req, res) => {
-    const repos = repoService.listRepositories();
+  asyncHandler(async (req, res) => {
+    const repos = repoService.listRepositories(req.user.id);
     res.json({ success: true, data: repos });
   }),
 );
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Repository-specific routes protected by ownership validation
+// ═════════════════════════════════════════════════════════════════════════════
+router.use('/:id', verifyRepoOwnership);
 
 // ═════════════════════════════════════════════════════════════════════════════
 // GET /api/repositories/:id — Get repo details

@@ -9,9 +9,10 @@ const llm = require('./llm-service');
  *
  * @param {string} repoId
  * @param {'readme'|'onboarding'|'architecture'|'module'} type
+ * @param {string} [customApiKey] — Optional custom user API key
  * @returns {Promise<object>} The documentation record
  */
-async function generateDocumentation(repoId, type) {
+async function generateDocumentation(repoId, type, customApiKey) {
   const validTypes = ['readme', 'onboarding', 'architecture', 'module'];
   if (!validTypes.includes(type)) {
     throw new Error(`Invalid documentation type. Must be one of: ${validTypes.join(', ')}`);
@@ -24,7 +25,7 @@ async function generateDocumentation(repoId, type) {
   const context = buildDocContext(repoId, repo.name);
 
   // Generate via LLM
-  const content = await llm.generateDocumentation(context, type, repo.name);
+  const content = await llm.generateDocumentation(context, type, repo.name, { apiKey: customApiKey });
 
   const titleMap = {
     readme: `README — ${repo.name}`,
