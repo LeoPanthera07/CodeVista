@@ -1,0 +1,21 @@
+{
+  "name": "codevista",
+  "version": "1.0.0",
+  "description": "A web service that reads Git repositories and turns them into conversational, code-aware knowledge systems",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "lint": "cd client && npm run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

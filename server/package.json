@@ -1,0 +1,28 @@
+{
+  "name": "codevista-server",
+  "version": "1.0.0",
+  "description": "CodeVista backend — Git repository analysis and conversational AI understanding",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.27.0",
+    "@babel/traverse": "^7.27.0",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "groq-sdk": "^0.9.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.2",
+    "simple-git": "^3.27.0",
+    "uuid": "^11.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
