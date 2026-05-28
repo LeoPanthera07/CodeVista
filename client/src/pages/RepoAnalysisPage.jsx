@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   Code2, Cpu, MessageSquare, BookOpen, ShieldAlert, RefreshCw, FileText, Send,
   Terminal, AlertTriangle, ChevronDown, ChevronRight, Copy, Download, Search,
-  Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles, Layers
+  Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles, Layers, Trash2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import api from '../services/api';
@@ -21,6 +21,7 @@ export default function RepoAnalysisPage() {
   const { id } = useParams();
   const { state, dispatch, addToast } = useApp();
   const { selectedRepo } = state;
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('overview'); // overview | structure | summaries | chat | docs
   const [repoLoading, setRepoLoading] = useState(true);
@@ -211,6 +212,30 @@ export default function RepoAnalysisPage() {
       setFileDetails(null);
     } finally {
       setDetailsLoading(false);
+    }
+  };
+
+  // ── Delete codebase handler ──
+  const handleDeleteCodebase = async () => {
+    if (!window.confirm(`Are you absolutely sure you want to delete this repository and all parsed data from the local server? This action is permanent and cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await api.deleteRepository(id);
+      addToast({
+        type: 'success',
+        title: 'Repository deleted',
+        message: 'Successfully removed all local codebase files and database parsed summaries.',
+      });
+      dispatch({ type: 'REMOVE_REPOSITORY', payload: id });
+      navigate('/dashboard');
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Delete failed',
+        message: err.message || 'Could not delete repository.',
+      });
     }
   };
 
@@ -412,6 +437,14 @@ export default function RepoAnalysisPage() {
             {selectedRepo.name}
           </span>
           <StatusBadge status="ready" />
+          <button 
+            className="btn btn-ghost btn-sm btn-icon text-danger-light" 
+            style={{ marginLeft: 'var(--sp-1)' }} 
+            onClick={handleDeleteCodebase}
+            title="Delete local codebase completely"
+          >
+            <Trash2 size={15} />
+          </button>
         </div>
 
         {/* Tab Buttons */}
@@ -456,7 +489,7 @@ export default function RepoAnalysisPage() {
             <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)' }}>
               <MetricCard icon={FileCode} label="Total Files" value={selectedRepo.total_files || 0} color="primary" />
               <MetricCard icon={Cpu} label="Extracted Symbols" value={selectedRepo.total_symbols || 0} color="cyan" />
-              <MetricCard icon={Layers} label="Key Modules" value={Object.keys(summaries.module || {}).length || 2} color="violet" />
+              <MetricCard icon={Layers} label="Key Modules" value={summaries.module?.filter(m => m.target_name !== '.')?.length || 0} color="violet" />
               <MetricCard icon={ShieldAlert} label="Complexity Status" value="Healthy" color="success" />
             </div>
 
@@ -530,24 +563,6 @@ export default function RepoAnalysisPage() {
                     <span className="badge badge-warning">LLaMA 3 Knowledge Engine</span>
                   </div>
                 </GlassCard>
-              </div>
-
-              {/* Right Column */}
-              <div className="flex flex-col gap-6">
-                
-                {/* AI Summary Block */}
-                <GlassCard variant="bordered" className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 text-primary-light">
-                    <Sparkles size={18} />
-                    <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)' }}>
-                      AI Architecture Summary
-                    </h3>
-                  </div>
-                  <p className="text-secondary text-sm" style={{ lineHeight: 1.6 }}>
-                    {summaries.repository?.[0]?.content ||
-                      "This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query."}
-                  </p>
-                </GlassCard>
 
                 {/* Risks & Indicators */}
                 <GlassCard variant="bordered">
@@ -574,6 +589,24 @@ export default function RepoAnalysisPage() {
                       <span className="font-mono font-semibold text-warning">Medium (4 levels)</span>
                     </div>
                   </div>
+                </GlassCard>
+              </div>
+
+              {/* Right Column */}
+              <div className="flex flex-col gap-6">
+                
+                {/* AI Summary Block */}
+                <GlassCard variant="bordered" className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-primary-light">
+                    <Sparkles size={18} />
+                    <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)' }}>
+                      AI Architecture Summary
+                    </h3>
+                  </div>
+                  <p className="text-secondary text-sm" style={{ lineHeight: 1.6 }}>
+                    {summaries.repository?.[0]?.content ||
+                      "This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query."}
+                  </p>
                 </GlassCard>
               </div>
             </div>
@@ -735,37 +768,40 @@ export default function RepoAnalysisPage() {
                   {/* Module Level Accordions */}
                   <div style={{ marginTop: 'var(--sp-4)' }}>
                     <h3 className="font-bold text-sm text-dim" style={{ marginBottom: 'var(--sp-3)' }}>
-                      MODULE SUMMARIES ({summaries.module?.length || 0})
+                      MODULE SUMMARIES ({summaries.module?.filter(m => m.target_name !== '.')?.length || 0})
                     </h3>
                     
-                    {summaries.module && summaries.module.length > 0 ? (
-                      summaries.module.map((mod) => {
-                        const isExpanded = expandedSummary === mod.id;
-                        return (
-                          <div key={mod.id} className="accordion-item">
-                            <div
-                              className="accordion-header"
-                              onClick={() => setExpandedSummary(isExpanded ? null : mod.id)}
-                            >
-                              <div className="accordion-header-left">
-                                <ChevronRight className={`accordion-icon ${isExpanded ? 'accordion-icon-open' : ''}`} />
-                                <div>
-                                  <div className="accordion-title font-mono">{mod.target_name}</div>
-                                  <div className="accordion-subtitle">Module summary</div>
+                    {(() => {
+                      const filteredModules = (summaries.module || []).filter(m => m.target_name !== '.');
+                      return filteredModules.length > 0 ? (
+                        filteredModules.map((mod) => {
+                          const isExpanded = expandedSummary === mod.id;
+                          return (
+                            <div key={mod.id} className="accordion-item">
+                              <div
+                                className="accordion-header"
+                                onClick={() => setExpandedSummary(isExpanded ? null : mod.id)}
+                              >
+                                <div className="accordion-header-left">
+                                  <ChevronRight className={`accordion-icon ${isExpanded ? 'accordion-icon-open' : ''}`} />
+                                  <div>
+                                    <div className="accordion-title font-mono">{mod.target_name}</div>
+                                    <div className="accordion-subtitle">Module summary</div>
+                                  </div>
                                 </div>
                               </div>
+                              {isExpanded && (
+                                <div className="accordion-content text-sm text-secondary" style={{ padding: 'var(--sp-4) var(--sp-6)', background: 'rgba(26,31,54,0.3)' }}>
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{mod.content}</ReactMarkdown>
+                                </div>
+                              )}
                             </div>
-                            {isExpanded && (
-                              <div className="accordion-content text-sm text-secondary" style={{ padding: 'var(--sp-4) var(--sp-6)', background: 'rgba(26,31,54,0.3)' }}>
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{mod.content}</ReactMarkdown>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-muted text-xs">No module summaries available.</div>
-                    )}
+                          );
+                        })
+                      ) : (
+                        <div className="text-muted text-xs">No module summaries available.</div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

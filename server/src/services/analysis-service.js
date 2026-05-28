@@ -348,6 +348,7 @@ async function generateAllSummaries(repoId) {
   );
 
   for (const { dir_name } of dirs) {
+    if (dir_name === '.') continue; // Skip root files being aggregated into a '.' module summary
     try {
       const fileSummaries = getAll(
         `SELECT s.target_name, s.content

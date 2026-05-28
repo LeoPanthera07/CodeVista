@@ -134,7 +134,11 @@ async function streamRequest(endpoint, body, onChunk) {
 
   // Fall back to JSON response
   const data = await response.json();
-  onChunk(data);
+  if (data && data.success && data.data) {
+    onChunk(data.data);
+  } else {
+    onChunk(data);
+  }
   return data;
 }
 
