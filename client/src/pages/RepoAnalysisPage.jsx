@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import {
   Code2, Cpu, MessageSquare, BookOpen, ShieldAlert, RefreshCw, FileText, Send,
   Terminal, AlertTriangle, ChevronDown, ChevronRight, Copy, Download, Search,
-  Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles
+  Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles, Layers
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import api from '../services/api';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Search, Plus, Trash2, Calendar, FileCode, Cpu, Globe } from 'lucide-react';
 
 const Github = (props) => (
