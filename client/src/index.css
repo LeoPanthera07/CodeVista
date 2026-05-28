@@ -829,7 +829,7 @@ h1, h2, h3, h4, h5, h6 {
 .chat-send-btn {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--gradient-primary);
   color: white;
   display: flex;
@@ -2668,3 +2668,49 @@ h1, h2, h3, h4, h5, h6 {
 .react-flow__controls button:hover { background: var(--bg-overlay) !important; color: var(--text-primary) !important; }
 .react-flow__edge-path { stroke: var(--text-disabled) !important; }
 .react-flow__attribution { display: none !important; }
+
+/* ── Tooltip custom component ────────────────────────────── */
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.tooltip-text {
+  visibility: hidden;
+  width: 240px;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  text-align: left;
+  border: 1px solid var(--glass-border-light) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--sp-2) var(--sp-3) !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  position: absolute;
+  z-index: 1000;
+  bottom: 130%; /* Position above the icon */
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out), visibility var(--duration-fast);
+  box-shadow: var(--shadow-lg) !important;
+  pointer-events: none;
+  font-family: var(--font-sans) !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ── Source Code wrapping overrides ─────────────────────── */
+.code-block-content pre,
+.code-block-content code,
+.code-block-content pre span {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}

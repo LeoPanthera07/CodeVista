@@ -485,10 +485,10 @@ export default function RepoAnalysisPage() {
             
             {/* Grid of metrics */}
             <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)' }}>
-              <MetricCard icon={FileCode} label="Total Files" value={selectedRepo.total_files || 0} color="primary" />
-              <MetricCard icon={Cpu} label="Extracted Symbols" value={selectedRepo.total_symbols || 0} color="cyan" />
-              <MetricCard icon={Layers} label="Key Modules" value={summaries.module?.filter(m => m.target_name !== '.')?.length || 0} color="violet" />
-              <MetricCard icon={ShieldAlert} label="Complexity Status" value="Healthy" color="success" />
+              <MetricCard icon={FileCode} label="Total Files" value={selectedRepo.total_files || 0} color="primary" tooltip="Total physical file count indexed from target codebase, excluding ignored modules." />
+              <MetricCard icon={Cpu} label="Extracted Symbols" value={selectedRepo.total_symbols || 0} color="cyan" tooltip="Total number of classes, functions, routes, and exports mapped from structural codebase parsing." />
+              <MetricCard icon={Layers} label="Key Modules" value={summaries.module?.filter(m => m.target_name !== '.')?.length || 0} color="violet" tooltip="Identified directory layers containing major system sub-folders." />
+              <MetricCard icon={ShieldAlert} label="Complexity Status" value="Healthy" color="success" tooltip="Determined relative complexity of AST symbols tree depth and structures." />
             </div>
 
             <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--sp-6)' }}>
@@ -570,19 +570,37 @@ export default function RepoAnalysisPage() {
                   <div className="flex flex-col gap-4">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-secondary flex items-center gap-2">
-                        <Info size={14} className="text-success" /> Code Coverage (Docstrings)
+                        <span className="tooltip-container">
+                          <Info size={14} className="text-success" style={{ cursor: 'help' }} />
+                          <span className="tooltip-text">
+                            Measures the percentage of classes and functions that have descriptive docstrings or comment blocks extracted by AST parsers.
+                          </span>
+                        </span>
+                        Code Coverage (Docstrings)
                       </span>
                       <span className="font-mono font-semibold text-success">84%</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-secondary flex items-center gap-2">
-                        <Info size={14} className="text-success" /> Dependency Health
+                        <span className="tooltip-container">
+                          <Info size={14} className="text-success" style={{ cursor: 'help' }} />
+                          <span className="tooltip-text">
+                            Evaluates repository connectivity. Looks at circular imports, isolated modules, and ensures cohesive routing connections.
+                          </span>
+                        </span>
+                        Dependency Health
                       </span>
                       <span className="font-mono font-semibold text-success">Excellent</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-secondary flex items-center gap-2">
-                        <AlertTriangle size={14} className="text-warning" /> Nested File Depth
+                        <span className="tooltip-container">
+                          <AlertTriangle size={14} className="text-warning" style={{ cursor: 'help' }} />
+                          <span className="tooltip-text">
+                            Checks repository nesting complexity. High nesting depth (5+ levels) indicates potential over-modularization or directory clutter.
+                          </span>
+                        </span>
+                        Nested File Depth
                       </span>
                       <span className="font-mono font-semibold text-warning">Medium (4 levels)</span>
                     </div>
@@ -601,10 +619,13 @@ export default function RepoAnalysisPage() {
                       AI Architecture Summary
                     </h3>
                   </div>
-                  <p className="text-secondary text-sm" style={{ lineHeight: 1.6 }}>
-                    {summaries.repository?.[0]?.content ||
-                      "This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query."}
-                  </p>
+                  <div className="text-secondary text-sm leading-relaxed">
+                    {summaries.repository?.[0]?.content ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
+                    ) : (
+                      <p>This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query.</p>
+                    )}
+                  </div>
                 </GlassCard>
               </div>
             </div>
@@ -743,8 +764,8 @@ export default function RepoAnalysisPage() {
                         <h4 className="text-secondary font-semibold text-sm flex items-center gap-1" style={{ marginBottom: 'var(--sp-2)' }}>
                           <Sparkles size={14} className="text-primary-light" /> AI Summary
                         </h4>
-                        <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: 'var(--sp-3)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                          {fileDetails.summary || "No AI summary parsed for this file."}
+                        <div className="markdown-body" style={{ background: 'var(--bg-raised)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: 'var(--sp-3)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileDetails.summary || "No AI summary parsed for this file."}</ReactMarkdown>
                         </div>
                       </div>
 
@@ -881,14 +902,14 @@ export default function RepoAnalysisPage() {
           <div className="flex-1 flex flex-col justify-between" style={{ height: 'calc(100vh - var(--nav-height) - 48px)', overflow: 'hidden' }}>
             
             {/* Scrollable messages container */}
-            <div className="chat-messages" style={{ overflowY: 'auto' }}>
+            <div className="chat-messages" style={{ overflowY: 'auto', flex: 1, display: chatMessages.length === 0 ? 'flex' : 'block', flexDirection: 'column', justifyContent: 'center' }}>
               {chatMessages.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center gap-6" style={{ padding: 'var(--sp-12)' }}>
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-6" style={{ padding: 'var(--sp-8) var(--sp-12)' }}>
                   <div style={{
                     width: 72, height: 72, borderRadius: '50%',
                     background: 'rgba(99,102,241,0.08)',
                     border: '1px dashed rgba(99,102,241,0.25)',
-                    display: 'flex', alignItems: 'center', justify: 'center'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <MessageSquare size={32} className="text-primary-light" />
                   </div>
