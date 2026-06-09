@@ -10,17 +10,16 @@ A powerful, code-aware knowledge service that reads an entire Git repository or 
 
 ## Table of Contents
 1. [Features](#features)
-2. [Tech Stack](#tech-stack)
-3. [Architecture Overview](#architecture-overview)
-4. [Getting Started](#getting-started)
+2. [Tech Stack & Architecture](#tech-stack--architecture)
+3. [Getting Started](#getting-started)
    - [Prerequisites](#prerequisites)
    - [Installation](#installation)
    - [Environment Configuration](#environment-configuration)
    - [Running the Application](#running-the-application)
    - [Production Build](#production-build)
-5. [Project Directory Structure](#project-directory-structure)
-6. [API Endpoints Reference](#api-endpoints-reference)
-7. [License](#license)
+4. [Project Directory Structure](#project-directory-structure)
+5. [API Endpoints Reference](#api-endpoints-reference)
+6. [License](#license)
 
 ---
 
@@ -35,7 +34,29 @@ A powerful, code-aware knowledge service that reads an entire Git repository or 
 
 ---
 
-## Tech Stack
+## Tech Stack & Architecture
+
+CodeVista uses an **API Gateway & Microservices** backend architecture running concurrently with the React frontend.
+
+```
+                      ┌────────────────────────┐
+                      │      Vite Client       │
+                      └───────────┬────────────┘
+                                  │
+                                  ▼ [Port 3001]
+                      ┌────────────────────────┐
+                      │      API Gateway       │ (Orchestrator)
+                      └─────┬───┬────┬───┬─────┘
+                            │   │    │   │
+          ┌─────────────────┘   │    │   └─────────────────┐
+          ▼ [Port 3002]         │    │                     ▼ [Port 3005]
+   ┌──────────────┐             │    └──────────────┐    ┌────────────────┐
+   │ Auth Service │             │                   │    │ Doc Service    │
+   └──────────────┘             ▼ [Port 3003]       ▼    └────────────────┘
+                       ┌──────────────┐    ┌──────────────┐ [Port 3004]
+                       │ Repo Service │    │ Chat Service │
+                       └──────────────┘    └──────────────┘
+```
 
 | Layer | Component | Technologies Used |
 | :--- | :--- | :--- |
@@ -43,12 +64,12 @@ A powerful, code-aware knowledge service that reads an entire Git repository or 
 | | Visual Mapping | **XYFlow React** (React Flow v12) |
 | | Animation & Design | Framer Motion, Vanilla CSS (Glassmorphism design system) |
 | | Utilities | Lucide React, Shiki (Syntax Highlighter), React Markdown + Remark GFM |
-| **Backend** | Server Runtime | Node.js + Express 5 |
-| | Repository Cloner | `simple-git` (shallow branch cloning) |
-| | File Extraction | `adm-zip` |
+| **Backend** | API Gateway & Router | Express 5 acting as transparent stream proxy on port `3001` |
+| | Microservices | Spawns 4 dedicated child processes: **Auth** (3002), **Repo** (3003), **Chat** (3004), **Doc** (3005) |
+| | Cloner & Extractor | `simple-git` (shallow branch cloning) & `adm-zip` |
 | **Database** | Persistence Layer | SQLite via `better-sqlite3` (WAL mode & foreign key cascades enabled) |
 | **Parsing** | AST Engines | `@babel/parser` (JS/JSX/TS/TSX/MJS/CJS) & Custom Python AST Parser |
-| **AI Layer** | LLM Engine | Groq SDK (Primary: `llama-3.3-70b-versatile` with automatic failover chain to `llama-3.1-8b-instant` and `meta-llama/llama-4-scout-17b-16e-instruct` on rate limits or API errors) |
+| **AI Layer** | LLM Engine | Groq SDK (Primary: `llama-3.3-70b-versatile` with failover chain to `llama-3.1-8b-instant` and `meta-llama/llama-4-scout-17b-16e-instruct`) |
 
 ---
 
@@ -78,9 +99,15 @@ npm run install:all
 Create a `.env` file in the `server/` directory:
 
 ```env
-# Server
+# Server API Gateway Port
 PORT=3001
 NODE_ENV=development
+
+# Microservice Port Mappings (Optional Custom Configuration)
+PORT_AUTH=3002
+PORT_REPO=3003
+PORT_CHAT=3004
+PORT_DOC=3005
 
 # Groq API Configuration
 GROQ_API_KEY=your_groq_api_key_here
@@ -107,14 +134,14 @@ LOG_LEVEL=dev
 
 ### Running the Application
 
-Start both client and server concurrently in development mode:
+To run the application, you only need to run a single command in the workspace root. Starting the server launches the **API Gateway orchestrator**, which automatically spawns and manages all 4 microservices in separate processes:
 
 ```bash
-# Run client and server together
+# Run client and server (Gateway + Microservices) together
 npm run dev
 
 # Or run components individually:
-npm run dev:server   # Starts Express backend (http://localhost:3001)
+npm run dev:server   # Starts Gateway + Microservices (runs index.js)
 npm run dev:client   # Starts Vite client (http://localhost:5173)
 ```
 
@@ -126,7 +153,7 @@ Build the production bundle for the frontend and run the production server:
 # Build React application to client/dist
 npm run build
 
-# Start production server (serves the backend and statically hosts client assets)
+# Start production server (serves the Gateway and statically hosts client assets)
 npm start
 ```
 
@@ -151,12 +178,17 @@ CodeVista/
 ├── server/                  # Node.js Server (Express)
 │   ├── src/
 │   │   ├── database/        # SQLite database connection & schema definitions
+│   │   ├── microservices/   # Independent service entrypoints (Port 3002-3005) [NEW]
+│   │   │   ├── auth-service.js
+│   │   │   ├── repository-service.js
+│   │   │   ├── chat-service.js
+│   │   │   └── documentation-service.js
 │   │   ├── middleware/      # Authentication, Ownership guards, Validator filters
 │   │   ├── parsers/         # Babel (JS/TS) & custom Python AST parsers
 │   │   ├── routes/          # Express route controllers (Auth, Repos, Chat)
 │   │   ├── services/        # Service layer (Analysis, Git clone, LLM, Chat)
 │   │   ├── utils/           # Crypto helpers & parser utilities
-│   │   └── index.js         # Backend entry point (starts server)
+│   │   └── index.js         # API Gateway & Process Orchestrator entry point
 │   ├── .env.example         # Template for environment configuration
 │   └── package.json         # Server dependencies & engine requirements
 │
@@ -168,53 +200,48 @@ CodeVista/
 
 ## API Endpoints Reference
 
-### Authentication (`/api/auth`)
+All requests must be sent to the API Gateway at port `3001` (`/api`). The Gateway routes each request to its target microservice.
+
+### Authentication (Routed to `PORT_AUTH` - 3002)
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/signup` | Create user profile, store hashed credentials, return JWT. | Public |
-| **POST** | `/login` | Authenticate user credentials, return user stats & JWT. | Public |
-| **GET** | `/me` | Get current user's profile information. | Private |
-| **PUT** | `/key` | Set/Update a user-specific custom Groq API key. | Private |
+| **POST** | `/api/auth/signup` | Create user profile, store hashed credentials, return JWT. | Public |
+| **POST** | `/api/auth/login` | Authenticate user credentials, return user stats & JWT. | Public |
+| **GET** | `/api/auth/me` | Get current user's profile information. | Private |
+| **PUT** | `/api/auth/key` | Set/Update a user-specific custom Groq API key. | Private |
 
-### Repositories (`/api/repositories`)
-
-All repository endpoints (except creation and listing) require authentication and verify ownership checks.
+### Repositories & Analysis (Routed to `PORT_REPO` - 3003)
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/connect` | Clone a Git repository from a public HTTPS URL. | Private |
-| **POST** | `/upload` | Upload a ZIP archive containing source files (max 100MB). | Private |
-| **GET** | `/` | List all repositories connected/uploaded by the current user. | Private |
-| **GET** | `/:id` | Get metadata details for a specific repository. | Private |
-| **GET** | `/:id/status` | Get analysis progress, counts of files, and symbols. | Private |
-| **POST** | `/:id/verify` | Verify repository ownership via GitHub username or Token. | Private |
-| **DELETE**| `/:id` | Remove repository details, summaries, and disk contents. | Private |
+| **POST** | `/api/repositories/connect` | Clone a Git repository from a public HTTPS URL. | Private |
+| **POST** | `/api/repositories/upload` | Upload a ZIP archive containing source files (max 100MB). | Private |
+| **GET** | `/api/repositories` | List all repositories connected/uploaded by the current user. | Private |
+| **GET** | `/api/repositories/:id` | Get metadata details for a specific repository. | Private |
+| **GET** | `/api/repositories/:id/status` | Get analysis progress, counts of files, and symbols. | Private |
+| **POST** | `/api/repositories/:id/verify` | Verify repository ownership via GitHub username or Token. | Private |
+| **DELETE**| `/api/repositories/:id` | Remove repository details, summaries, and disk contents. | Private |
+| **GET** | `/api/repositories/:id/summary` | Retrieve repository-level, module-level, and file-level summaries. | Private |
+| **GET** | `/api/repositories/:id/map` | Retrieve symbol dependencies and file import connections. | Private |
+| **GET** | `/api/repositories/:id/files` | Get nested directory file tree structure. | Private |
+| **GET** | `/api/repositories/:id/files/:fileId` | Fetch file contents and extracted AST symbols. | Private |
 
-### Code Analysis (`/api/repositories/:id`)
-
-| Method | Endpoint | Description | Access |
-| :--- | :--- | :--- | :--- |
-| **GET** | `/summary` | Retrieve repository-level, module-level, and file-level summaries. | Private |
-| **GET** | `/map` | Retrieve symbol dependencies and file import connections. | Private |
-| **GET** | `/files` | Get nested directory file tree structure. | Private |
-| **GET** | `/files/:fileId` | Fetch file contents and extracted AST symbols. | Private |
-
-### Conversational Q&A (`/api/repositories/:id/chat`)
+### Conversational Q&A (Routed to `PORT_CHAT` - 3004)
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/` | Send a chat message query, returns AI response with file citations. | Private |
-| **GET** | `/history` | Fetch chat message history logs. | Private |
-| **DELETE**| `/history` | Clear all chat history logs for this repository. | Private |
+| **POST** | `/api/repositories/:id/chat` | Send a chat message query, returns AI response with file citations. | Private |
+| **GET** | `/api/repositories/:id/chat/history` | Fetch chat message history logs. | Private |
+| **DELETE**| `/api/repositories/:id/chat/history` | Clear all chat history logs for this repository. | Private |
 
-### Documentation Generative (`/api/repositories/:id/documentation`)
+### Documentation Generative (Routed to `PORT_DOC` - 3005)
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/` | Generate structured markdown (readme / onboarding / architecture / module).| Private |
-| **GET** | `/` | List all generated documentation entries for the repository. | Private |
-| **GET** | `/:docId` | Retrieve the specific generated markdown document content. | Private |
+| **POST** | `/api/repositories/:id/documentation` | Generate structured markdown (readme / onboarding / architecture / module).| Private |
+| **GET** | `/api/repositories/:id/documentation` | List all generated documentation entries for the repository. | Private |
+| **GET** | `/api/repositories/:id/documentation/:docId` | Retrieve the specific generated markdown document content. | Private |
 
 ---
 
