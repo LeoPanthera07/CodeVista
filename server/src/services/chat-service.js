@@ -40,7 +40,12 @@ async function sendMessage(repoId, message, customApiKey) {
   const filteredHistory = history.filter((m) => !(m.role === 'user' && m.content === message.trim()));
 
   // Get LLM answer
-  const { answer, references } = await llm.answerQuestion(message, repoContext, filteredHistory, { apiKey: customApiKey });
+  const { answer, references } = await llm.answerQuestion(
+    message,
+    repoContext,
+    filteredHistory,
+    { apiKey: customApiKey, isVerifiedOwner: repo.is_verified_owner === 1 }
+  );
 
   // Store assistant reply
   const assistantMsgId = uuidv4();

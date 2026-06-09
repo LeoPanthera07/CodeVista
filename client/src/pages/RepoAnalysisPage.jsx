@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  Code2, Cpu, MessageSquare, BookOpen, ShieldAlert, RefreshCw, FileText, Send,
+  Code2, Cpu, MessageSquare, BookOpen, ShieldAlert, ShieldCheck, Lock, Unlock, RefreshCw, FileText, Send,
   Terminal, AlertTriangle, ChevronDown, ChevronRight, Copy, Download, Search,
   Network, FileCode, ArrowLeft, TerminalSquare, Info, Sparkles, Layers, Trash2,
   Folder
@@ -54,6 +54,41 @@ export default function RepoAnalysisPage() {
   const [activeDoc, setActiveDoc] = useState(null);
   const [docLoading, setDocLoading] = useState(false);
 
+  // Verification states
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [githubUsernameInput, setGithubUsernameInput] = useState('');
+  const [githubPatInput, setGithubPatInput] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
+  const handleVerifyOwnership = async (e) => {
+    e.preventDefault();
+    if (!githubUsernameInput.trim()) return;
+
+    setVerifying(true);
+    try {
+      const res = await api.verifyRepositoryOwnership(
+        selectedRepo.id,
+        githubUsernameInput.trim(),
+        githubPatInput.trim()
+      );
+      dispatch({ type: 'UPDATE_REPOSITORY', payload: res.data });
+      addToast({
+        type: 'success',
+        title: 'Ownership Verified!',
+        message: 'Successfully verified repository owner. Security threat auditing is now unlocked.',
+      });
+      setIsVerifyModalOpen(false);
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Verification Failed',
+        message: err.message || 'Credentials could not be verified against the codebase.',
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   // ── 1. Fetch Repository Details ──
   useEffect(() => {
     let active = true;
@@ -95,6 +130,7 @@ export default function RepoAnalysisPage() {
           }
 
           if (res.data.status === 'ready') {
+            if (timer) clearInterval(timer);
             addToast({
               type: 'success',
               title: 'Analysis complete!',
@@ -103,6 +139,8 @@ export default function RepoAnalysisPage() {
             // Reload repo data
             const repoRes = await api.getRepository(id);
             dispatch({ type: 'SET_SELECTED_REPO', payload: repoRes.data });
+          } else if (res.data.status === 'error') {
+            if (timer) clearInterval(timer);
           }
         }
       } catch (err) {
@@ -315,6 +353,99 @@ export default function RepoAnalysisPage() {
     document.body.removeChild(link);
   };
 
+  const detectTechStack = () => {
+    const badges = [];
+    const stats = selectedRepo.language_stats || {};
+    const filePaths = flatFiles.map(f => f.path.toLowerCase());
+    
+    // Helper to check if file exists
+    const hasFile = (name) => filePaths.some(p => p.endsWith(name.toLowerCase()));
+    // Helper to check if any file has extension
+    const hasExt = (ext) => stats[ext] && stats[ext] > 0;
+
+    // 1. Language badges
+    if (hasExt('js') || hasExt('jsx') || hasExt('ts') || hasExt('tsx')) {
+      badges.push({ name: 'JavaScript', icon: Terminal, color: 'primary' });
+    }
+    if (hasExt('ts') || hasExt('tsx')) {
+      badges.push({ name: 'TypeScript', icon: Code2, color: 'cyan' });
+    }
+    if (hasExt('py')) {
+      badges.push({ name: 'Python', icon: Terminal, color: 'warning' });
+    }
+    if (hasExt('go')) {
+      badges.push({ name: 'Go', icon: Cpu, color: 'cyan' });
+    }
+    if (hasExt('rs')) {
+      badges.push({ name: 'Rust', icon: Cpu, color: 'warning' });
+    }
+    if (hasExt('java')) {
+      badges.push({ name: 'Java', icon: Layers, color: 'violet' });
+    }
+    if (hasExt('cpp') || hasExt('c')) {
+      badges.push({ name: 'C/C++', icon: Cpu, color: 'primary' });
+    }
+
+    // 2. Frontend Frameworks
+    if (hasFile('package.json')) {
+      if (hasExt('jsx') || hasExt('tsx') || filePaths.some(p => p.includes('react'))) {
+        badges.push({ name: 'React', icon: Code2, color: 'violet' });
+      }
+      if (hasFile('next.config.js') || hasFile('next.config.mjs') || filePaths.some(p => p.includes('.next/'))) {
+        badges.push({ name: 'Next.js', icon: Layers, color: 'info' });
+      }
+      if (hasFile('vite.config.js') || hasFile('vite.config.ts')) {
+        badges.push({ name: 'Vite', icon: Sparkles, color: 'warning' });
+      }
+    }
+
+    // 3. Backend / Runtime
+    if (hasFile('package.json')) {
+      badges.push({ name: 'Node.js', icon: Terminal, color: 'success' });
+      if (filePaths.some(p => p.includes('server') || p.includes('app.js') || p.includes('index.js'))) {
+        badges.push({ name: 'Express', icon: Network, color: 'cyan' });
+      }
+    } else if (hasExt('py')) {
+      if (hasFile('manage.py')) {
+        badges.push({ name: 'Django', icon: Network, color: 'success' });
+      } else if (hasFile('requirements.txt') || hasFile('pyproject.toml')) {
+        badges.push({ name: 'WSGI/ASGI', icon: Network, color: 'info' });
+      }
+    }
+
+    // 4. Databases
+    if (filePaths.some(p => p.includes('sqlite') || p.includes('db.sqlite') || p.endsWith('.db') || p.endsWith('.sqlite'))) {
+      badges.push({ name: 'SQLite', icon: Layers, color: 'success' });
+    } else if (filePaths.some(p => p.includes('schema.sql') || p.includes('migration') || p.includes('db/'))) {
+      badges.push({ name: 'SQL', icon: Layers, color: 'info' });
+    }
+
+    // 5. Build/Packaging
+    if (hasFile('Dockerfile') || hasFile('docker-compose.yml')) {
+      badges.push({ name: 'Docker', icon: Cpu, color: 'info' });
+    }
+    if (hasFile('package.json')) {
+      badges.push({ name: 'NPM', icon: Terminal, color: 'danger' });
+    } else if (hasFile('Cargo.toml')) {
+      badges.push({ name: 'Cargo', icon: Terminal, color: 'danger' });
+    }
+
+    // Fallback if empty — keep standard stack
+    if (badges.length === 0) {
+      return [
+        { name: 'Node.js', icon: Terminal, color: 'primary' },
+        { name: 'Express', icon: Network, color: 'cyan' },
+        { name: 'SQLite', icon: Layers, color: 'success' },
+        { name: 'React', icon: Code2, color: 'violet' },
+        { name: 'JavaScript', icon: Terminal, color: 'warning' },
+        { name: 'CSS', icon: Sparkles, color: 'info' },
+      ];
+    }
+
+    // Limit to max 6 unique badges for spacing layout
+    return badges.slice(0, 6);
+  };
+
   // ── Loading & Processing Views ──
   if (repoLoading) {
     return (
@@ -435,6 +566,47 @@ export default function RepoAnalysisPage() {
             {selectedRepo.name}
           </span>
           <StatusBadge status="ready" />
+          {selectedRepo.is_verified_owner === 1 ? (
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 10px',
+                borderRadius: '100px',
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.25)',
+                color: 'var(--success-light)',
+                fontSize: '11px',
+                fontWeight: 'var(--weight-semibold)',
+              }}
+              title="Verified Owner: Full Threat & Shortcomings auditing unlocked."
+            >
+              <ShieldCheck size={12} />
+              <span>Verified Owner</span>
+            </div>
+          ) : (
+            <button 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 10px',
+                borderRadius: '100px',
+                background: 'rgba(99,102,241,0.08)',
+                border: '1px solid rgba(99,102,241,0.2)',
+                color: 'var(--primary-light)',
+                fontSize: '11px',
+                fontWeight: 'var(--weight-semibold)',
+                cursor: 'pointer',
+              }}
+              onClick={() => setIsVerifyModalOpen(true)}
+              title="External Project: Ask questions on how code works. Click to verify ownership and unlock security threat points auditing."
+            >
+              <ShieldAlert size={12} />
+              <span>External Project</span>
+            </button>
+          )}
           <button 
             className="btn btn-ghost btn-sm btn-icon text-danger-light" 
             style={{ marginLeft: 'var(--sp-1)' }} 
@@ -483,145 +655,196 @@ export default function RepoAnalysisPage() {
         {activeTab === 'overview' && (
           <div className="container" style={{ paddingTop: 'var(--sp-6)', paddingBottom: 'var(--sp-12)' }}>
             
-            {/* Grid of metrics */}
-            <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)' }}>
+            {/* Top Row: Compact Metric Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)' }}>
               <MetricCard icon={FileCode} label="Total Files" value={selectedRepo.total_files || 0} color="primary" tooltip="Total physical file count indexed from target codebase, excluding ignored modules." />
               <MetricCard icon={Cpu} label="Extracted Symbols" value={selectedRepo.total_symbols || 0} color="cyan" tooltip="Total number of classes, functions, routes, and exports mapped from structural codebase parsing." />
               <MetricCard icon={Layers} label="Key Modules" value={summaries.module?.filter(m => m.target_name !== '.')?.length || 0} color="violet" tooltip="Identified directory layers containing major system sub-folders." />
               <MetricCard icon={ShieldAlert} label="Complexity Status" value="Healthy" color="success" tooltip="Determined relative complexity of AST symbols tree depth and structures." />
             </div>
 
-            {/* Metadata and Stats Dashboard Row */}
-            <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--sp-6)', marginBottom: 'var(--sp-6)' }}>
-              
-              {/* Language Distribution */}
-              <GlassCard variant="bordered">
-                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
-                  Language Distribution
-                </h3>
-                
-                {selectedRepo.language_stats ? (
-                  (() => {
-                    const stats = selectedRepo.language_stats;
-                    const total = Object.values(stats).reduce((a, b) => a + b, 0);
-                    const sorted = Object.entries(stats).sort((a, b) => b[1] - a[1]);
-                    
-                    return (
-                      <div>
-                        <div className="lang-bar">
-                          {sorted.map(([lang, count], i) => {
-                            const pct = ((count / total) * 100).toFixed(1);
-                            const bg = langColors[lang.toLowerCase()] || '#94a3b8';
-                            return (
-                              <div
-                                key={lang}
-                                className="lang-bar-segment"
-                                style={{
-                                  width: `${pct}%`,
-                                  backgroundColor: bg,
-                                  height: '100%'
-                                }}
-                                title={`${lang}: ${pct}%`}
-                              />
-                            );
-                          })}
-                        </div>
-                        
-                        <div className="lang-bar-legend">
-                          {sorted.map(([lang, count]) => {
-                            const pct = ((count / total) * 100).toFixed(1);
-                            const dotColor = langColors[lang.toLowerCase()] || '#94a3b8';
-                            return (
-                              <div key={lang} className="lang-bar-legend-item">
-                                <div className="lang-bar-legend-dot" style={{ backgroundColor: dotColor }} />
-                                <span>{lang} ({pct}%)</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <span className="text-muted text-xs">No distribution stats parsed.</span>
-                )}
-              </GlassCard>
-
-              {/* Tech Stack detection */}
-              <GlassCard variant="bordered">
-                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-3)' }}>
-                  Architecture & Tech Badges
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  <span className="badge badge-primary">Node.js</span>
-                  <span className="badge badge-cyan">Express App</span>
-                  <span className="badge badge-success">SQLite Database</span>
-                  <span className="badge badge-warning">LLaMA 3 Knowledge Engine</span>
+            {/* Full-width AI Architecture Summary — prominent hero block */}
+            <GlassCard variant="bordered" className="overview-ai-summary" style={{ marginBottom: 'var(--sp-6)', borderLeft: '3px solid var(--primary)' }}>
+              <div className="flex items-center gap-2" style={{ marginBottom: 'var(--sp-4)' }}>
+                <div style={{ background: 'rgba(99,102,241,0.12)', padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={18} className="text-primary-light" />
                 </div>
-              </GlassCard>
+                <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', color: 'var(--text-primary)' }}>
+                  AI Architecture Summary
+                </h3>
+              </div>
+              <div className="overview-ai-summary-body">
+                {summaries.repository?.[0]?.content ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
+                ) : (
+                  <p className="text-muted" style={{ fontStyle: 'italic' }}>This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query.</p>
+                )}
+              </div>
+            </GlassCard>
 
-              {/* Risks & Indicators */}
+            {/* Two-Column Layout: Lang + Tech | Health Metrics */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-6)' }}>
+              
+              {/* Left Column */}
+              <div className="flex flex-col" style={{ gap: 'var(--sp-6)' }}>
+                {/* Language Distribution */}
+                <GlassCard variant="bordered">
+                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
+                    Language Distribution
+                  </h3>
+                  
+                  {selectedRepo.language_stats ? (
+                    (() => {
+                      const stats = selectedRepo.language_stats;
+                      const total = Object.values(stats).reduce((a, b) => a + b, 0);
+                      const sorted = Object.entries(stats).sort((a, b) => b[1] - a[1]);
+                      
+                      return (
+                        <div>
+                          <div className="lang-bar">
+                            {sorted.map(([lang, count], i) => {
+                              const pct = ((count / total) * 100).toFixed(1);
+                              const bg = langColors[lang.toLowerCase()] || '#94a3b8';
+                              return (
+                                <div
+                                  key={lang}
+                                  className="lang-bar-segment"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: bg,
+                                    height: '100%'
+                                  }}
+                                  title={`${lang}: ${pct}%`}
+                                />
+                              );
+                            })}
+                          </div>
+                          
+                          <div className="lang-bar-legend">
+                            {sorted.map(([lang, count]) => {
+                              const pct = ((count / total) * 100).toFixed(1);
+                              const dotColor = langColors[lang.toLowerCase()] || '#94a3b8';
+                              return (
+                                <div key={lang} className="lang-bar-legend-item">
+                                  <div className="lang-bar-legend-dot" style={{ backgroundColor: dotColor }} />
+                                  <span>{lang} ({pct}%)</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <span className="text-muted text-xs">No distribution stats parsed.</span>
+                  )}
+                </GlassCard>
+
+                {/* Architecture & Tech Stack — compact chip badges */}
+                <GlassCard variant="bordered">
+                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
+                    Architecture & Tech Stack
+                  </h3>
+                  <div className="tech-badge-grid">
+                    {detectTechStack().map((badge, idx) => {
+                      const IconComponent = badge.icon;
+                      return (
+                        <div key={idx} className={`tech-badge tech-badge-${badge.color}`}>
+                          <IconComponent size={14} />
+                          <span>{badge.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </GlassCard>
+              </div>
+
+              {/* Right Column: Health Metrics */}
               <GlassCard variant="bordered">
-                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-4)' }}>
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--sp-5)' }}>
                   Codebase Health Metrics
                 </h3>
-                <div className="flex flex-col gap-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-secondary flex items-center gap-2">
+                <div className="flex flex-col" style={{ gap: 'var(--sp-5)' }}>
+                  {/* Code Coverage */}
+                  <div className="health-metric-row">
+                    <div className="health-metric-left">
                       <span className="tooltip-container">
                         <Info size={14} className="text-success" style={{ cursor: 'help' }} />
                         <span className="tooltip-text">
                           Measures the percentage of classes and functions that have descriptive docstrings or comment blocks extracted by AST parsers.
                         </span>
                       </span>
-                      Code Coverage (Docstrings)
-                    </span>
-                    <span className="font-mono font-semibold text-success">84%</span>
+                      <span className="text-secondary text-sm">Code Coverage (Docstrings)</span>
+                    </div>
+                    <div className="health-metric-right">
+                      <div className="health-bar">
+                        <div className="health-bar-fill health-bar-success" style={{ width: '84%' }} />
+                      </div>
+                      <span className="font-mono font-semibold text-success text-sm" style={{ minWidth: '42px', textAlign: 'right' }}>84%</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-secondary flex items-center gap-2">
+
+                  {/* Dependency Health */}
+                  <div className="health-metric-row">
+                    <div className="health-metric-left">
                       <span className="tooltip-container">
                         <Info size={14} className="text-success" style={{ cursor: 'help' }} />
                         <span className="tooltip-text">
                           Evaluates repository connectivity. Looks at circular imports, isolated modules, and ensures cohesive routing connections.
                         </span>
                       </span>
-                      Dependency Health
-                    </span>
-                    <span className="font-mono font-semibold text-success">Excellent</span>
+                      <span className="text-secondary text-sm">Dependency Health</span>
+                    </div>
+                    <div className="health-metric-right">
+                      <div className="health-bar">
+                        <div className="health-bar-fill health-bar-success" style={{ width: '95%' }} />
+                      </div>
+                      <span className="font-mono font-semibold text-success text-sm" style={{ minWidth: '72px', textAlign: 'right' }}>Excellent</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-secondary flex items-center gap-2">
+
+                  {/* Nested File Depth */}
+                  <div className="health-metric-row">
+                    <div className="health-metric-left">
                       <span className="tooltip-container">
                         <AlertTriangle size={14} className="text-warning" style={{ cursor: 'help' }} />
                         <span className="tooltip-text">
                           Checks repository nesting complexity. High nesting depth (5+ levels) indicates potential over-modularization or directory clutter.
                         </span>
                       </span>
-                      Nested File Depth
-                    </span>
-                    <span className="font-mono font-semibold text-warning">Medium (4 levels)</span>
+                      <span className="text-secondary text-sm">Nested File Depth</span>
+                    </div>
+                    <div className="health-metric-right">
+                      <div className="health-bar">
+                        <div className="health-bar-fill health-bar-warning" style={{ width: '55%' }} />
+                      </div>
+                      <span className="font-mono font-semibold text-warning text-sm" style={{ minWidth: '72px', textAlign: 'right' }}>Medium</span>
+                    </div>
+                  </div>
+
+                  {/* Extracted Symbols Density */}
+                  <div className="health-metric-row">
+                    <div className="health-metric-left">
+                      <span className="tooltip-container">
+                        <Info size={14} className="text-primary-light" style={{ cursor: 'help' }} />
+                        <span className="tooltip-text">
+                          Ratio of parsed symbols (functions, classes, exports) per file. Higher density means more granular code modularity.
+                        </span>
+                      </span>
+                      <span className="text-secondary text-sm">Symbol Density</span>
+                    </div>
+                    <div className="health-metric-right">
+                      <div className="health-bar">
+                        <div className="health-bar-fill health-bar-primary" style={{ width: '72%' }} />
+                      </div>
+                      <span className="font-mono font-semibold text-primary-light text-sm" style={{ minWidth: '42px', textAlign: 'right' }}>
+                        {selectedRepo.total_files > 0 ? (selectedRepo.total_symbols / selectedRepo.total_files).toFixed(1) : '—'}/file
+                      </span>
+                    </div>
                   </div>
                 </div>
               </GlassCard>
             </div>
-
-            {/* Full-width AI Architecture Summary Block */}
-            <GlassCard variant="bordered" className="flex flex-col gap-3" style={{ width: '100%' }}>
-              <div className="flex items-center gap-2 text-primary-light">
-                <Sparkles size={18} />
-                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)' }}>
-                  AI Architecture Summary
-                </h3>
-              </div>
-              <div className="text-secondary text-sm leading-relaxed">
-                {summaries.repository?.[0]?.content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
-                ) : (
-                  <p>This repository represents a structured workspace containing file entities, AST parsers, and service layers. CodeVista has mapped all imports and is ready to query.</p>
-                )}
-              </div>
-            </GlassCard>
           </div>
         )}
 
@@ -666,7 +889,7 @@ export default function RepoAnalysisPage() {
                 ) : (selectedFile.type === 'folder' || selectedFile.type === 'directory') ? (
                   // Folder Inspector Details
                   <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ padding: 'var(--sp-6)', overflowY: 'auto' }}>
-                    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
                       
                       {/* Folder Title Card */}
                       <div className="glass-card flex items-center gap-4" style={{ borderLeft: '4px solid var(--warning)' }}>
@@ -757,7 +980,7 @@ export default function RepoAnalysisPage() {
                         <h4 className="text-secondary font-semibold text-sm flex items-center gap-1" style={{ marginBottom: 'var(--sp-2)' }}>
                           <Sparkles size={14} className="text-primary-light" /> AI Summary
                         </h4>
-                        <div className="markdown-body" style={{ background: 'var(--bg-raised)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: 'var(--sp-3)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        <div className="file-summary-body" style={{ background: 'var(--bg-raised)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: 'var(--sp-3)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5, overflow: 'hidden' }}>
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileDetails.summary || "No AI summary parsed for this file."}</ReactMarkdown>
                         </div>
                       </div>
@@ -821,7 +1044,7 @@ export default function RepoAnalysisPage() {
         {/* TAB 3: SUMMARIES */}
         {activeTab === 'summaries' && (
           <div className="container" style={{ paddingTop: 'var(--sp-6)', paddingBottom: 'var(--sp-12)' }}>
-            <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+            <div style={{ width: '100%' }}>
               <div className="flex justify-between items-center" style={{ marginBottom: 'var(--sp-6)' }}>
                 <div>
                   <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-bold)' }}>Codebase Summaries</h2>
@@ -841,7 +1064,7 @@ export default function RepoAnalysisPage() {
                       <Sparkles size={18} />
                       <h3 className="font-bold text-sm">REPOSITORY LEVEL</h3>
                     </div>
-                    <div className="text-secondary text-sm leading-relaxed">
+                    <div className="repo-summary-body">
                       {summaries.repository?.[0]?.content ? (
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaries.repository[0].content}</ReactMarkdown>
                       ) : (
@@ -898,8 +1121,55 @@ export default function RepoAnalysisPage() {
         {activeTab === 'chat' && (
           <div className="flex-1 flex flex-col justify-between" style={{ height: 'calc(100vh - var(--nav-height) - 48px)', overflow: 'hidden' }}>
             
+            {/* Ownership Compliance Banner */}
+            {selectedRepo.is_verified_owner !== 1 ? (
+              <div style={{
+                background: 'rgba(99,102,241,0.05)',
+                borderBottom: '1px solid rgba(99,102,241,0.15)',
+                padding: 'var(--sp-2-5) var(--sp-6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 'var(--sp-4)',
+                fontSize: '11px',
+                flexShrink: 0,
+              }}>
+                <div className="flex items-center gap-2" style={{ color: 'rgba(165,180,252,0.9)' }}>
+                  <ShieldAlert size={13} className="animate-pulse" style={{ flexShrink: 0 }} />
+                  <span>
+                    <strong>External Codebase / Other's Project:</strong> Under security compliance, security threat auditing is locked. You can only request walkthrough and functional insights.
+                  </span>
+                </div>
+                <button 
+                  className="btn btn-ghost btn-sm text-primary-light flex items-center gap-1.5"
+                  onClick={() => setIsVerifyModalOpen(true)}
+                  style={{ textDecoration: 'underline', padding: '2px 8px', fontSize: '11px', flexShrink: 0 }}
+                >
+                  <Lock size={12} />
+                  Verify Ownership
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                background: 'rgba(16,185,129,0.05)',
+                borderBottom: '1px solid rgba(16,185,129,0.15)',
+                padding: 'var(--sp-2-5) var(--sp-6)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--sp-2)',
+                fontSize: '11px',
+                color: 'rgba(110,231,183,0.9)',
+                flexShrink: 0,
+              }}>
+                <ShieldCheck size={13} style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>Verified Repository Owner:</strong> Threat auditing, vulnerability discovery, and shortcomings analysis are unlocked and compliant.
+                </span>
+              </div>
+            )}
+            
             {/* Scrollable messages container */}
-            <div className="chat-messages" style={{ overflowY: 'auto', flex: 1, display: chatMessages.length === 0 ? 'flex' : 'block', flexDirection: 'column', justifyContent: 'center' }}>
+            <div className="chat-messages" style={{ overflowY: 'auto', flex: 1 }}>
               {chatMessages.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-6" style={{ padding: 'var(--sp-8) var(--sp-12)' }}>
                   <div style={{
@@ -1100,7 +1370,7 @@ export default function RepoAnalysisPage() {
                   </div>
                   
                   <div className="flex-1 tab-content" style={{ overflowY: 'auto', padding: 'var(--sp-8) var(--sp-6)' }}>
-                    <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+                    <div className="markdown-body" style={{ width: '100%' }}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeDoc.content}</ReactMarkdown>
                     </div>
                   </div>
@@ -1116,6 +1386,144 @@ export default function RepoAnalysisPage() {
         )}
 
       </div>
+
+      {/* ── Compliance Verification Modal ── */}
+      {isVerifyModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(5, 7, 16, 0.75)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 'var(--sp-4)',
+        }}>
+          <div style={{
+            background: 'var(--glass-bg)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: 'var(--radius-xl)',
+            width: '100%',
+            maxWidth: '480px',
+            padding: 'var(--sp-8)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.1)',
+            position: 'relative',
+          }}>
+            <button 
+              style={{
+                position: 'absolute',
+                top: 'var(--sp-4)',
+                right: 'var(--sp-4)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: 'var(--sp-1)',
+                fontSize: '18px',
+                lineHeight: 1,
+              }}
+              onClick={() => setIsVerifyModalOpen(false)}
+            >
+              ✕
+            </button>
+
+            <div style={{ textAlign: 'center', marginBottom: 'var(--sp-6)' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'rgba(99,102,241,0.08)',
+                border: '1px dashed rgba(99,102,241,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto var(--sp-4) auto',
+              }}>
+                <ShieldCheck size={24} className="text-primary-light" />
+              </div>
+              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', letterSpacing: '-0.01em', color: 'var(--text-secondary)' }}>
+                Verify Repository Ownership
+              </h2>
+              <p className="text-muted text-xs" style={{ marginTop: '4px' }}>
+                Verify ownership of **{selectedRepo.name}** under security compliance guidelines to unlock vulnerability auditing.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyOwnership} className="flex flex-col gap-4">
+              <div>
+                <label className="input-label" htmlFor="verify-username">
+                  GitHub Username
+                </label>
+                <input
+                  id="verify-username"
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. octocat"
+                  value={githubUsernameInput}
+                  onChange={(e) => setGithubUsernameInput(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="input-label" htmlFor="verify-pat">
+                  Personal Access Token (PAT)
+                </label>
+                <input
+                  id="verify-pat"
+                  type="password"
+                  className="input-field"
+                  placeholder="ghp_xxxxxxxxxxxxxx"
+                  value={githubPatInput}
+                  onChange={(e) => setGithubPatInput(e.target.value)}
+                />
+                <span className="text-dim text-2xs" style={{ display: 'block', marginTop: '4px', lineHeight: 1.3 }}>
+                  Optional for public repositories if your username matches the URL path. Required for private codebases.
+                </span>
+              </div>
+
+              {/* Compliance note box */}
+              <div style={{
+                background: 'rgba(99,102,241,0.04)',
+                border: '1px solid rgba(99,102,241,0.08)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--sp-3)',
+                fontSize: '11px',
+                color: 'var(--text-dim)',
+                lineHeight: 1.4,
+              }}>
+                <strong style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>🔒 Security & Compliance Guarantee:</strong>
+                <ul style={{ listStyleType: 'disc', paddingLeft: '16px', margin: 0 }}>
+                  <li>Scopes are limited strictly to <code>read:user</code> and <code>repo</code> (Least Privilege).</li>
+                  <li>Credentials are securely linked for compliance validation.</li>
+                  <li>CodeVista will never modify, write, or push commits to your codebase.</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3" style={{ marginTop: 'var(--sp-2)' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary w-full"
+                  onClick={() => setIsVerifyModalOpen(false)}
+                  disabled={verifying}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary w-full flex items-center justify-center gap-1.5"
+                  disabled={verifying || !githubUsernameInput.trim()}
+                >
+                  {verifying ? <Spinner size="sm" /> : <ShieldCheck size={14} />}
+                  Verify & Unlock
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

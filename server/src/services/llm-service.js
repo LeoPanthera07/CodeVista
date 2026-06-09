@@ -77,8 +77,8 @@ async function chatCompletion(messages, opts = {}) {
 
   // If using the standard heavy reasoning model, set up the fallback list
   if (primaryModel === 'llama-3.3-70b-versatile') {
-    modelChain.push('mixtral-8x7b-32768'); // Immediate second best model
-    modelChain.push('llama-3.1-8b-instant'); // Ultra-high throughput lightweight fallback
+    modelChain.push('llama-3.1-8b-instant'); // Immediate second best model
+    modelChain.push('meta-llama/llama-4-scout-17b-16e-instruct'); // Ultra-high throughput lightweight fallback
   }
 
   let lastError;
@@ -98,14 +98,17 @@ async function chatCompletion(messages, opts = {}) {
       return choice.message.content;
     } catch (err) {
       lastError = err;
-      const isRateLimit = err.status === 429 || 
+      const isRetryable = err.status === 429 || 
+                          err.status === 400 ||
                           err.message?.includes('429') || 
                           err.message?.includes('rate_limit') || 
                           err.message?.includes('Limit') || 
-                          err.message?.includes('exceeded');
+                          err.message?.includes('exceeded') ||
+                          err.message?.includes('decommissioned') ||
+                          err.message?.includes('not supported');
                           
-      if (isRateLimit && model !== modelChain[modelChain.length - 1]) {
-        console.warn(`[LLM] 429 Rate Limit on ${model} — seamlessly hot-swapping request to next best fallback in chain`);
+      if (isRetryable && model !== modelChain[modelChain.length - 1]) {
+        console.warn(`[LLM] Retryable error on ${model} — seamlessly hot-swapping request to next best fallback in chain`);
         continue;
       }
       throw err;
@@ -172,15 +175,22 @@ ${truncate(context, 14000)}`,
   ], opts);
 }
 
-/**
- * Answer a user question about a codebase with code references.
- *
- * @param {string} question      — The user's natural-language question
- * @param {string} repoContext   — Relevant code, symbols, summaries
- * @param {Array<{role: string, content: string}>} chatHistory — Previous messages
- * @returns {Promise<{answer: string, references: object[]}>}
- */
 async function answerQuestion(question, repoContext, chatHistory = [], opts = {}) {
+  const safetyGuardrail = opts.isVerifiedOwner
+    ? `
+ADDITIONAL SECURITY COMPLIANCE ROLE:
+The user has successfully verified ownership of this repository. You are fully authorized to provide deep, constructive security insights, vulnerability analysis, threats, shortcomings, and potential threat points/cracks, along with regular architectural and logic explanations.
+`
+    : `
+ADDITIONAL SECURITY COMPLIANCE ROLE (STRICT RESTRICTION):
+The user has NOT verified ownership of this repository. Under security compliance rules, you are STRICTLY PROHIBITED from analyzing, identifying, or discussing any security vulnerabilities, threat points, shortcomings, security cracks, or bugs in this repository.
+If the user asks about vulnerabilities, threats, cracks, flaws, shortcomings, security loopholes, or bugs in the code:
+1. You must politely refuse to answer.
+2. State that security auditing is restricted to verified repository owners only.
+3. Advise the user to verify repository ownership under the security compliance guidelines in the dashboard or chat header to unlock full threat and shortcoming analysis.
+You may ONLY answer questions about how the project works, its architecture, standard structures, design patterns, and general code comprehension.
+`;
+
   const systemMsg = `You are CodeVista, an AI assistant that helps developers understand codebases.
 You have access to the repository's code, symbols, and summaries provided below.
 
@@ -191,6 +201,7 @@ RULES:
 - Format code references as: \`filename:function_name\` (line X-Y)
 - Use markdown formatting for readability
 - When showing code, use fenced code blocks with language tags
+${safetyGuardrail}
 
 REPOSITORY CONTEXT:
 ${truncate(repoContext, 14000)}`;

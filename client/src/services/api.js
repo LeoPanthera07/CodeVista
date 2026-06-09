@@ -178,6 +178,9 @@ const api = {
   deleteRepository: (id) =>
     request(`/repositories/${id}`, { method: 'DELETE' }),
 
+  verifyRepositoryOwnership: (id, githubUsername, token) =>
+    request(`/repositories/${id}/verify`, { method: 'POST', body: { githubUsername, token } }),
+
   // Analysis
   getRepositorySummary: (id) =>
     request(`/repositories/${id}/summary`),

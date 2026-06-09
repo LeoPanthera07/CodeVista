@@ -15,6 +15,8 @@ function initializeSchema(db) {
       email           TEXT UNIQUE NOT NULL,
       password_hash   TEXT NOT NULL,
       groq_api_key    TEXT,
+      github_username   TEXT,
+      github_token      TEXT,
       created_at      TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -34,6 +36,8 @@ function initializeSchema(db) {
       language_stats  TEXT,            -- JSON: { "js": 42, "py": 18, ... }
       total_files     INTEGER DEFAULT 0,
       total_symbols   INTEGER DEFAULT 0,
+      is_verified_owner INTEGER DEFAULT 0,
+      github_username   TEXT,
       created_at      TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -129,6 +133,20 @@ function initializeSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_docs_repo ON documentation(repo_id);
   `);
+
+  // Schema evolution / migrations for GitHub verification columns
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN github_username TEXT;`);
+  } catch (e) { /* already exists */ }
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN github_token TEXT;`);
+  } catch (e) { /* already exists */ }
+  try {
+    db.exec(`ALTER TABLE repositories ADD COLUMN is_verified_owner INTEGER DEFAULT 0;`);
+  } catch (e) { /* already exists */ }
+  try {
+    db.exec(`ALTER TABLE repositories ADD COLUMN github_username TEXT;`);
+  } catch (e) { /* already exists */ }
 
   console.log('[DB] Schema initialized');
 }

@@ -115,6 +115,24 @@ router.get(
 );
 
 // ═════════════════════════════════════════════════════════════════════════════
+// POST /api/repositories/:id/verify — Verify repository ownership
+// ═════════════════════════════════════════════════════════════════════════════
+router.post(
+  '/:id/verify',
+  validateRepoId,
+  asyncHandler(async (req, res) => {
+    const { githubUsername, token } = req.body;
+    const updatedRepo = await repoService.verifyRepositoryOwnership(
+      req.params.id,
+      req.user.id,
+      githubUsername,
+      token
+    );
+    res.json({ success: true, data: updatedRepo });
+  }),
+);
+
+// ═════════════════════════════════════════════════════════════════════════════
 // DELETE /api/repositories/:id — Delete a repository
 // ═════════════════════════════════════════════════════════════════════════════
 router.delete(
